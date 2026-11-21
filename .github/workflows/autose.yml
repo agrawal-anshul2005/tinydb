@@ -15,9 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Hard per-run safety budgets (ADR-009)
+  # Hard per-run safety budgets (ADR-009 v2 — transient 429/503 provider errors excluded)
   MAX_TOKENS_PER_RUN: "200000"
-  MAX_LLM_CALLS_PER_RUN: "15"
+  MAX_LLM_CALLS_PER_RUN: "20"
+  MAX_REPRO_ATTEMPTS: "3"
   MAX_CODER_ATTEMPTS: "3"
   MIN_CALL_INTERVAL_SEC: "6"
   # Empirically verified multi-provider free-tier models (ADR-006 v3)

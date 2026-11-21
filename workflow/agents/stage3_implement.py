@@ -88,7 +88,23 @@ def _replace_settings_decorators(code: str, replacement: str) -> str:
 
 
 def _harden_hypothesis_settings(code: str) -> str:
-    """Deterministically guarantee safe Hypothesis profile so FailedHealthCheck never flakes CI."""
+    """Deterministically fix common Hypothesis/TinyDB pitfalls before running pytest.
+
+    Auto-fixes that are 100% deterministic:
+    - Replace `getattr(Query(), expr)` with `Query()[expr]` (avoids method name collisions).
+    - Replace `st.text(...).filter(lambda s: s.isidentifier())` with bounded ASCII alphabet strategy.
+    - Replace `st.recursive(..., max_depth=N)` with `max_leaves=N`.
+    - Inject deterministic `autose_pbt` profile + normalize `@settings(...)` with `suppress_health_check=list(HealthCheck)`.
+    """
+    # Deterministic auto-fixes (applied even before invoking any LLM retry!)
+    code = re.sub(r"getattr\(\s*Query\(\)\s*,\s*([^)]+)\)", r"Query()[\1]", code)
+    code = re.sub(
+        r"st\.text\([^)]*\)\.filter\(\s*lambda\s+[a-zA-Z_]\w*\s*:\s*[a-zA-Z_]\w*\.isidentifier\(\)\s*\)",
+        "st.text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=8)",
+        code,
+    )
+    code = re.sub(r"\bmax_depth\s*=", "max_leaves=", code)
+
     if "hypothesis" not in code or "@given" not in code:
         return code
 
@@ -194,21 +210,49 @@ def run_repro_agent(
         f"## Current Target Code\n{target_excerpts}"
     )
 
-    models = get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite,gemma-4-31b-it")
-    raw = llm.call_gemini(
-        stage="stage3_repro_pbt",
-        models=models,
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        temperature=0.15,
-    )
-    code = _harden_hypothesis_settings(_extract_python_code(raw))
-    test_path.write_text(code, encoding="utf-8")
+    import os
 
-    # Deterministic pre-flight gate: static Hypothesis lint + py_compile + pytest --collect-only
-    # + runtime check for Hypothesis harness errors (up to 2 self-repair passes)
+    max_repro_attempts = int(os.environ.get("MAX_REPRO_ATTEMPTS", "3"))  # 2 primary + 1 escalated
+    primary_models = get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite,gemma-4-31b-it")
+    escalated_models = get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it")
+
+    repro_history: list[str] = []
+    code = ""
+    harness_err = ""
     repro_run = None
-    for repair_try in range(3):
+
+    # Symmetric Evaluator-Optimizer loop for ReproAgent (ADR-002 v4):
+    # Attempts 1-2 use primary model; Attempt 3 escalates to gemini-3.7-flash.
+    for attempt in range(1, max_repro_attempts + 1):
+        is_escalated = attempt >= 3
+        tier = "escalated" if is_escalated else "primary"
+        models = escalated_models if is_escalated else primary_models
+
+        if attempt == 1:
+            prompt = user_prompt
+            stage_label = "stage3_repro_pbt_attempt_1_primary"
+        else:
+            prompt = (
+                f"ReproAgent Attempt {attempt}/{max_repro_attempts} (tier={tier}): "
+                f"The generated PBT file `{test_rel}` failed pre-flight validation even after deterministic sanitization:\n"
+                f"```\n{harness_err}\n```\n\n"
+                f"Previous file:\n```python\n{code}\n```\n\n"
+                "Fix the Hypothesis strategy/collection/harness issue while preserving all PBT `@given` invariants "
+                "and AC boundary tests. Return ONLY the complete corrected ```python ... ``` code block."
+            )
+            stage_label = f"stage3_repro_pbt_attempt_{attempt}_{tier}"
+
+        raw = llm.call_gemini(
+            stage=stage_label,
+            models=models,
+            system_prompt=system_prompt,
+            user_prompt=prompt,
+            temperature=0.15 if attempt == 1 else 0.1,
+        )
+        # Apply deterministic auto-corrections first
+        code = _harden_hypothesis_settings(_extract_python_code(raw))
+        test_path.write_text(code, encoding="utf-8")
+
         lint_errors = _lint_generated_pbt(code)
         comp = run_cmd([sys.executable, "-m", "py_compile", str(test_path)], cwd=repo_root, timeout=30)
         collect = (
@@ -231,41 +275,31 @@ def run_repro_agent(
                 harness_err = f"Hypothesis test-harness error detected during pre-fix run:\n{combined[-2000:]}"
 
         if not harness_err:
+            repro_history.append(f"| {attempt} | {tier} | PASS | collect=OK, pre-fix rc={repro_run.returncode} |")
             break
 
-        if repair_try == 2:
-            return False, test_path, f"ReproAgent PBT test failed pre-flight validation after self-repair:\n{harness_err}"
+        repro_history.append(f"| {attempt} | {tier} | FAIL | {harness_err.splitlines()[0][:100]} |")
+        print(f"[stage3_repro] Attempt {attempt}/{max_repro_attempts} ({tier}) failed pre-flight PBT check; looping...")
 
-        print(f"[stage3_repro] Pre-flight PBT check failed (pass {repair_try + 1}); running self-repair...")
-        repair_prompt = (
-            f"The generated PBT file `{test_rel}` failed our Hypothesis/pytest pre-flight check:\n"
-            f"```\n{harness_err}\n```\n\n"
-            f"Current file:\n```python\n{code}\n```\n\n"
-            "Fix ONLY the Hypothesis strategy/harness issue while preserving all PBT `@given` invariants and AC boundary tests. "
-            "Return ONLY the complete corrected ```python ... ``` code block."
-        )
-        raw = llm.call_gemini(
-            stage=f"stage3_repro_pbt_repair_{repair_try + 1}",
-            models=models,
-            system_prompt=system_prompt,
-            user_prompt=repair_prompt,
-            temperature=0.1,
-        )
-        code = _harden_hypothesis_settings(_extract_python_code(raw))
-        test_path.write_text(code, encoding="utf-8")
+    if harness_err or repro_run is None:
+        return False, test_path, f"ReproAgent failed pre-flight validation after {max_repro_attempts} attempts:\n{harness_err}"
 
-    assert repro_run is not None
     has_pbt = "@given" in code and "hypothesis" in code
+    history_table = "\n".join(repro_history)
     note = (
         f"\n## Pre-Implementation TDD / Repro Check (`{test_rel}`)\n"
         f"- **Hypothesis PBT Present:** `{has_pbt}`\n"
         f"- **Pre-Flight Collection & Harness Gate:** `PASS`\n"
         f"- **Pre-Fix Exit Code:** `{repro_run.returncode}` (1 confirms bug/feature fails before patch)\n\n"
+        "### ReproAgent Attempt History\n\n"
+        "| Attempt | Model Tier | Pre-Flight | Notes |\n"
+        "|---|---|---|---|\n"
+        f"{history_table}\n\n"
         f"```\n{(repro_run.stdout + repro_run.stderr)[-2000:]}\n```\n"
     )
     status_path = artifacts_dir / "status.md"
     status_path.write_text(status_path.read_text(encoding="utf-8") + note, encoding="utf-8")
-    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, preflight=OK, pre-fix rc={repro_run.returncode})"
+    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, preflight=OK, attempts={len(repro_history)}, pre-fix rc={repro_run.returncode})"
 
 
 def run_coder_attempt(

@@ -47,12 +47,15 @@ class LLMGateway:
         self._gemini_client = None
 
         self.records: list[dict[str, Any]] = []
+        self.transient_errors: list[dict[str, Any]] = []
         if self.usage_path.exists():
             try:
                 existing = json.loads(self.usage_path.read_text(encoding="utf-8"))
                 self.records = existing.get("calls", [])
+                self.transient_errors = existing.get("transient_errors_uncounted", [])
             except Exception:
                 self.records = []
+                self.transient_errors = []
 
     @property
     def total_tokens(self) -> int:
@@ -60,6 +63,8 @@ class LLMGateway:
 
     @property
     def total_calls(self) -> int:
+        # Only successful LLM calls count against MAX_LLM_CALLS_PER_RUN;
+        # transient 429/503 provider failures are explicitly excluded (ADR-009 v2).
         return len(self.records)
 
     def _check_budget(self, stage: str) -> None:
@@ -81,7 +86,9 @@ class LLMGateway:
             "total_tokens": self.total_tokens,
             "max_tokens_budget": self.max_tokens,
             "max_calls_budget": self.max_calls,
+            "transient_errors_uncounted_count": len(self.transient_errors),
             "calls": self.records,
+            "transient_errors_uncounted": self.transient_errors,
         }
         self.usage_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -113,7 +120,7 @@ class LLMGateway:
         last_err: Optional[Exception] = None
 
         for idx, model in enumerate(models):
-            for attempt in range(2):
+            for attempt in range(3):
                 elapsed = time.time() - self._last_gemini_call_ts
                 if self._last_gemini_call_ts > 0 and elapsed < self.min_interval:
                     time.sleep(self.min_interval - elapsed)
@@ -164,13 +171,24 @@ class LLMGateway:
                 except Exception as exc:
                     last_err = exc
                     msg = str(exc)
-                    transient = any(code in msg for code in ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "500"))
-                    if transient and attempt == 0:
-                        wait_s = 12 if "429" in msg else 6
-                        print(f"[llm] {stage}: {model} transient error ({msg[:120]}), retrying in {wait_s}s...")
+                    transient = any(code in msg for code in ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "500", "502", "504"))
+                    self.transient_errors.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "gemini",
+                            "model": model,
+                            "counted_against_budget": False,
+                            "error": msg[:180],
+                        }
+                    )
+                    self._save_usage()
+                    if transient and attempt < 2:
+                        wait_s = (12 if "429" in msg else 6) * (attempt + 1)
+                        print(f"[llm] {stage}: {model} transient error (uncounted), retrying in {wait_s}s...")
                         time.sleep(wait_s)
                         continue
-                    print(f"[llm] {stage}: {model} failed ({msg[:140]}), trying next fallback...")
+                    print(f"[llm] {stage}: {model} unavailable (uncounted), trying next fallback...")
                     break
 
         raise RuntimeError(f"All Gemini models failed for {stage}: {last_err}")
@@ -198,7 +216,7 @@ class LLMGateway:
         last_err: Optional[Exception] = None
 
         for idx, model in enumerate(models):
-            for attempt in range(2):
+            for attempt in range(3):
                 payload = json.dumps(
                     {
                         "model": model,
@@ -258,14 +276,36 @@ class LLMGateway:
                     except Exception:
                         pass
                     last_err = RuntimeError(f"HTTP {exc.code}: {err_body}")
-                    if exc.code in (429, 500, 502, 503) and attempt == 0:
-                        time.sleep(10)
+                    self.transient_errors.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "github-models",
+                            "model": model,
+                            "counted_against_budget": False,
+                            "error": str(last_err)[:180],
+                        }
+                    )
+                    self._save_usage()
+                    if exc.code in (429, 500, 502, 503, 504) and attempt < 2:
+                        time.sleep(10 * (attempt + 1))
                         continue
-                    print(f"[llm] {stage}: GitHub Models {model} failed ({last_err}), trying next fallback...")
+                    print(f"[llm] {stage}: GitHub Models {model} failed (uncounted: {last_err}), trying next fallback...")
                     break
                 except Exception as exc:
                     last_err = exc
-                    print(f"[llm] {stage}: GitHub Models {model} error ({exc}), trying next fallback...")
+                    self.transient_errors.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "github-models",
+                            "model": model,
+                            "counted_against_budget": False,
+                            "error": str(exc)[:180],
+                        }
+                    )
+                    self._save_usage()
+                    print(f"[llm] {stage}: GitHub Models {model} error (uncounted: {exc}), trying next fallback...")
                     break
 
         raise RuntimeError(f"All GitHub Models failed for {stage}: {last_err}")
