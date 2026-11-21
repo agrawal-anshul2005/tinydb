@@ -1,0 +1,6 @@
+pr_id,diff_file,issue_ref,expected_verdict,category,seeded_defect
+SPR-1,pr_01_clean_rename.diff,Issue #4 (operations.rename),APPROVE,clean,"None — clean rename() preserving dict order on self-rename, raising KeyError on missing key, with PBT + boundary tests."
+SPR-2,pr_02_clean_between.diff,Issue #3 (Query.between),APPROVE,clean,"None — clean Query.between() with path, frozen bounds, inclusive flag in hashval, safe incomparable handling, and PBT tests."
+SPR-3,pr_03_bug_fragment_cache_collision.diff,Issue #1 (Query.fragment),FIX_CODE,subtle_cache_bug,"Fixes isinstance(value, Mapping) crash, but omits self._path from hashval tuple ('fragment', freeze(document)), causing Table LRUCache collisions across different paths."
+SPR-4,pr_04_bug_one_of_generator_exhaustion.diff,Issue #2 (Query.one_of),FIX_CODE,subtle_logic_bug,"Updates type hint to Iterable[Any] and adds a single-doc test, but never materializes the generator into a tuple, so multi-document db.search() still exhausts the iterator."
+SPR-5,pr_05_arch_violation_upward_import.diff,Issue #3 (Query.between),FIX_DESIGN,architecture_violation,"Violates ARCHITECTURE.md Constraint #2 (queries.py imports Table from .table creating circular/upward dependency) and Constraint #1 (introduces non-stdlib numpy import in tinydb/queries.py)."

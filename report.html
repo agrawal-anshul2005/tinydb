@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>AutoSE Assignment 3 Report — Anshul Agrawal (2025901015)</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 13mm 13mm 14mm 13mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.44;
+      color: #1a202c;
+      background: #ffffff;
+    }
+
+    .page-container {
+      width: 100%;
+      max-width: 184mm;
+      margin: 0 auto;
+    }
+
+    header.title-block {
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    header.title-block h1 {
+      font-size: 16pt;
+      margin: 0 0 4px 0;
+      color: #0f172a;
+      letter-spacing: -0.2px;
+    }
+
+    header.title-block .subtitle {
+      font-size: 9.8pt;
+      color: #334155;
+      margin: 0 0 6px 0;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 8.6pt;
+      color: #475569;
+    }
+
+    .meta-row strong {
+      color: #0f172a;
+    }
+
+    h2 {
+      font-size: 12pt;
+      color: #1e3a8a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 2px;
+      margin: 14px 0 6px 0;
+      page-break-after: avoid;
+    }
+
+    h3 {
+      font-size: 10pt;
+      color: #0f172a;
+      margin: 10px 0 4px 0;
+      page-break-after: avoid;
+    }
+
+    p {
+      margin: 0 0 6px 0;
+      text-align: left;
+      overflow-wrap: break-word;
+    }
+
+    ul,
+    ol {
+      margin: 3px 0 8px 0;
+      padding-left: 18px;
+    }
+
+    li {
+      margin-bottom: 4px;
+      overflow-wrap: break-word;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 8.2pt;
+      background: #f1f5f9;
+      padding: 1px 3px;
+      border-radius: 3px;
+      color: #0f172a;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    table {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      margin: 7px 0 10px 0;
+      font-size: 8pt;
+      line-height: 1.32;
+    }
+
+    th,
+    td {
+      border: 1px solid #cbd5e1;
+      padding: 4px 4.5px;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      hyphens: auto;
+    }
+
+    th {
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-weight: 600;
+    }
+
+    tr {
+      page-break-inside: avoid;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    figure {
+      width: 100%;
+      max-width: 100%;
+      margin: 8px 0 10px 0;
+      padding: 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      background: #ffffff;
+      page-break-inside: avoid;
+      overflow: hidden;
+    }
+
+    figure svg {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+    }
+
+    figcaption {
+      font-size: 8.2pt;
+      color: #475569;
+      margin-top: 5px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    .callout {
+      background: #f8fafc;
+      border-left: 3.5px solid #1e3a8a;
+      padding: 7px 10px;
+      margin: 7px 0 10px 0;
+      font-size: 8.9pt;
+      page-break-inside: avoid;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+      width: 100%;
+      margin: 7px 0 10px 0;
+      page-break-inside: avoid;
+    }
+
+    .kpi-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 6px 5px;
+      background: #f8fafc;
+      text-align: center;
+    }
+
+    .kpi-val {
+      font-size: 11.5pt;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    .kpi-lbl {
+      font-size: 7.6pt;
+      color: #475569;
+      margin-top: 2px;
+      line-height: 1.25;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .badge-pass {
+      color: #15803d;
+      font-weight: 700;
+    }
+
+    .badge-halt {
+      color: #b45309;
+      font-weight: 700;
+    }
+
+    .small {
+      font-size: 7.7pt;
+      color: #475569;
+    }
+
+    a {
+      color: #1d4ed8;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page-container {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+    }
+
+    @media screen {
+      body {
+        background: #e2e8f0;
+        padding: 18px;
+      }
+
+      .page-container {
+        background: #ffffff;
+        padding: 14mm 13mm;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-container">
+
+    <!-- ==================== HEADER ==================== -->
+    <header class="title-block">
+      <h1>Architecting an Agentic SDLC Workflow on TinyDB</h1>
+      <div class="subtitle">Assignment 3 — Automated Software Engineering (AutoSE), IIIT Hyderabad</div>
+      <div class="meta-row">
+        <span><strong>Author:</strong> Anshul Agrawal (<code>2025901015</code>)</span>
+        <span><strong>Target Fork:</strong> <a
+            href="https://github.com/agrawal-anshul2005/tinydb">agrawal-anshul2005/tinydb</a>
+          (<code>edff96a</code>)</span>
+        <span><strong>Date:</strong> 21 November 2026</span>
+      </div>
+    </header>
+
+    <div class="callout">
+      <strong>Executive Summary:</strong> We designed, justified (10 versioned Nygard ADRs with 16 archived superseded
+      versions), and built a six-stage GitHub Actions agentic SDLC workflow on TinyDB (<code>edff96a</code>) that
+      converts an issue into a tested, independently reviewed pull request without ever auto-merging. Core pillars
+      include a <strong>zero-LLM deterministic orchestrator</strong>, <strong>Property-Based Testing (PBT)-first
+        TDD</strong> via Hypothesis, <strong>AST-based read-minimal context tools</strong> with
+      <code>SEARCH/REPLACE</code> diff editing, and <strong>mathematically disjoint Builder vs. Reviewer model
+        pools</strong> (<code>BuilderSet ∩ ReviewerSet = ∅</code>) across free-tier Gemini 3.x, open-weight Gemma 4, and
+      Groq failover. Across 5 real issues (2 bugs, 2 features, 1 vague), all 4 concrete issues passed all 6 stages,
+      passed real CI, earned Round-1 independent <code>APPROVE</code>, and scored <strong>13/13 (100%) on hidden
+        acceptance tests</strong> (0 regressions), while the vague Issue #5 halted cleanly at Stage 1—using
+      <strong>254,262 total tokens</strong> at <strong>$0.00 cost</strong>.
+    </div>
+
+    <!-- ==================== SECTION 1: ARCHITECTURE ==================== -->
+    <h2>1. Architecture</h2>
+    <p>
+      Connecting an LLM to a GitHub button that opens pull requests is easy; engineering a trustworthy autonomous
+      maintainer requires strict boundaries around <em>what each agent sees</em>, <em>what permissions it holds</em>,
+      <em>how stages verify work before hand-off</em>, and <em>how retry loops remain bounded</em>. Our workflow in
+      <code>.github/workflows/autose.yml</code> splits execution across two isolated GitHub Actions jobs per review
+      round (bounded strictly to at most two review rounds by the Actions DAG):
+    </p>
+    <ul>
+      <li><strong>Job 1 — Builder Pipeline (<code>round1_build</code> / <code>round2_build</code>):</strong> Runs a
+        <strong>zero-LLM deterministic Python orchestrator</strong> (<code>orchestrator.py</code>) across Stages 1–5
+        with <code>contents: write</code>, <code>pull-requests: write</code>, <code>issues: write</code>, and
+        <code>actions: write</code>. Specialized agents handle Requirements (<code>RequirementsAgent</code> + A1
+        <code>skill.md</code>), Exploration &amp; Design (<code>ExplorerDesignAgent</code> + A2
+        <code>ARCHITECTURE.md</code> + Python <code>ast</code> repo-map tools), PBT-first TDD &amp; Implementation
+        (<code>ReproAgent</code> + <code>CoderAgent</code> using <code>SEARCH/REPLACE</code> patches), Testing
+        (<code>Evaluator</code> running Hypothesis PBT + full <code>pytest</code> regression), and Release
+        (<code>DeliveryAgent</code> opening the PR and dispatching <code>ci.yml</code>).
+      </li>
+      <li><strong>Job 2 — Independent Reviewer (<code>round1_review</code> / <code>round2_review</code>):</strong> Runs
+        Stage 6 (<code>ReviewerAgent</code>) on a <strong>fresh ephemeral VM</strong> with <code>contents: read</code>
+        only (physically incapable of pushing commits), fresh checkout of the PR HEAD commit, zero download of Stage 1–5
+        artifacts or reasoning traces, and a <strong>strictly disjoint model pool</strong> enforced by a runtime
+        assertion.</li>
+    </ul>
+
+    <!-- FIGURE 1: COMPONENT VIEW SVG (native A4 680px viewBox for crisp print readability) -->
+    <figure>
+      <svg viewBox="0 0 680 398" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+            orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#334155" />
+          </marker>
+          <marker id="arr-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+            orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#b45309" />
+          </marker>
+          <marker id="arr-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+            orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#15803d" />
+          </marker>
+        </defs>
+
+        <!-- Top Trigger Banner -->
+        <rect x="8" y="6" width="664" height="32" rx="5" fill="#eff6ff" stroke="#1e3a8a" stroke-width="1.4" />
+        <text x="340" y="20" text-anchor="middle" font-size="10.2" font-weight="700" fill="#1e3a8a">GitHub Trigger
+          (ADR-010): label 'autose' OR comment '/autose'</text>
+        <text x="340" y="33" text-anchor="middle" font-size="9" fill="#334155">Authorized OWNER / COLLABORATOR guard ·
+          Per-issue concurrency group (cancel-in-progress: false)</text>
+        <line x1="340" y1="38" x2="340" y2="52" stroke="#1e3a8a" stroke-width="1.4" marker-end="url(#arr)" />
+
+        <!-- Job 1 Container -->
+        <rect x="8" y="54" width="664" height="202" rx="7" fill="#f8fafc" stroke="#1e3a8a" stroke-width="1.4"
+          stroke-dasharray="5,3" />
+        <text x="20" y="70" font-size="9.8" font-weight="700" fill="#1e3a8a">Job 1: Builder Pipeline (contents: write,
+          pull-requests: write, actions: write) — Pool A: Gemini 3.x → Groq Builder</text>
+
+        <!-- Orchestrator Bar -->
+        <rect x="20" y="77" width="640" height="22" rx="4" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1" />
+        <text x="340" y="92" text-anchor="middle" font-size="9.2" font-weight="700" fill="#1e3a8a">Zero-LLM Orchestrator
+          (orchestrator.py) — Stage Gates · Write Allowlist (tinydb/, tests/) · 200k Token Cap · 429/503
+          Uncounted</text>
+
+        <!-- Row 1 of Stages: Stage 1 -> Stage 2 -> Stage 3 -->
+        <rect x="20" y="110" width="196" height="54" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.2" />
+        <text x="118" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">1.
+          RequirementsAgent</text>
+        <text x="118" y="140" text-anchor="middle" font-size="8.8" fill="#334155">A1 skill.md +
+          gemini-3.5-flash-lite</text>
+        <text x="118" y="154" text-anchor="middle" font-size="8.6" fill="#1d4ed8">spec.md · Gate: testable ACs</text>
+
+        <rect x="242" y="110" width="196" height="54" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.2" />
+        <text x="340" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">2.
+          ExplorerDesignAgent</text>
+        <text x="340" y="140" text-anchor="middle" font-size="8.8" fill="#334155">A2 ARCHITECTURE.md + AST map</text>
+        <text x="340" y="154" text-anchor="middle" font-size="8.6" fill="#1d4ed8">design.md · Gate: valid
+          files/syms</text>
+
+        <rect x="464" y="110" width="196" height="54" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.2" />
+        <text x="562" y="126" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">3. Repro (PBT) +
+          CoderAgent</text>
+        <text x="562" y="140" text-anchor="middle" font-size="8.8" fill="#334155">Hypothesis TDD + SEARCH/REPLACE</text>
+        <text x="562" y="154" text-anchor="middle" font-size="8.6" fill="#1d4ed8">diff.patch · Gate:
+          compileall/import</text>
+
+        <!-- Row 1 Arrows -->
+        <line x1="216" y1="137" x2="240" y2="137" stroke="#334155" stroke-width="1.4" marker-end="url(#arr)" />
+        <line x1="438" y1="137" x2="462" y2="137" stroke="#334155" stroke-width="1.4" marker-end="url(#arr)" />
+
+        <!-- Row 2 inside Job 1: Tools Box | Stage 5 | Stage 4 -->
+        <rect x="20" y="186" width="196" height="56" rx="5" fill="#f1f5f9" stroke="#64748b" stroke-width="1" />
+        <text x="118" y="203" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">Tools &amp; LLM
+          Gateway</text>
+        <text x="118" y="217" text-anchor="middle" font-size="8.5" fill="#475569">ast repo_map · read_file_lines</text>
+        <text x="118" y="231" text-anchor="middle" font-size="8.5" fill="#475569">search_symbol · 60s timeout ·
+          usage</text>
+
+        <rect x="242" y="186" width="196" height="56" rx="5" fill="#ffffff" stroke="#15803d" stroke-width="1.3" />
+        <text x="340" y="203" text-anchor="middle" font-size="10" font-weight="700" fill="#15803d">5. DeliveryAgent
+          (Release)</text>
+        <text x="340" y="217" text-anchor="middle" font-size="8.8" fill="#334155">git push + gh pr create +
+          ci.yml</text>
+        <text x="340" y="231" text-anchor="middle" font-size="8.6" fill="#15803d">pr.md · Gate: PR open + CI pass</text>
+
+        <rect x="464" y="186" width="196" height="56" rx="5" fill="#ffffff" stroke="#334155" stroke-width="1.2" />
+        <text x="562" y="203" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">4. Evaluator
+          (Testing)</text>
+        <text x="562" y="217" text-anchor="middle" font-size="8.8" fill="#334155">Hypothesis PBT + 228 regression</text>
+        <text x="562" y="231" text-anchor="middle" font-size="8.6" fill="#1d4ed8">test_report.md · Gate: 0
+          failures</text>
+
+        <!-- Stage 3 <-> Stage 4 arrows & Stage 4 -> Stage 5 -->
+        <line x1="540" y1="164" x2="540" y2="184" stroke="#334155" stroke-width="1.4" marker-end="url(#arr)" />
+        <line x1="585" y1="186" x2="585" y2="166" stroke="#b45309" stroke-width="1.3" marker-end="url(#arr-amb)" />
+        <text x="626" y="178" text-anchor="middle" font-size="8" fill="#b45309">fail: ≤2+1</text>
+        <line x1="464" y1="214" x2="440" y2="214" stroke="#15803d" stroke-width="1.4" marker-end="url(#arr-grn)" />
+
+        <!-- Bottom Row: Human Gate | Job 2 Independent Reviewer | CI Box -->
+        <rect x="8" y="280" width="154" height="108" rx="6" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.5" />
+        <text x="85" y="302" text-anchor="middle" font-size="10.2" font-weight="700" fill="#0369a1">Human Gate</text>
+        <text x="85" y="320" text-anchor="middle" font-size="8.8" fill="#334155">Reviews PR, CI,</text>
+        <text x="85" y="334" text-anchor="middle" font-size="8.8" fill="#334155">artifacts &amp; review.md</text>
+        <text x="85" y="354" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0f172a">Merge or Close</text>
+        <text x="85" y="372" text-anchor="middle" font-size="8.3" fill="#dc2626">(Never auto-merges)</text>
+
+        <rect x="182" y="280" width="356" height="108" rx="7" fill="#fffbeb" stroke="#b45309" stroke-width="1.7" />
+        <text x="360" y="297" text-anchor="middle" font-size="9.8" font-weight="700" fill="#92400e">Job 2: Stage 6
+          Independent Reviewer (contents: read — NO PUSH)</text>
+        <text x="360" y="313" text-anchor="middle" font-size="8.7" fill="#334155">Fresh VM + PR HEAD checkout · Zero
+          Stage 1–5 artifacts downloaded</text>
+        <text x="360" y="328" text-anchor="middle" font-size="8.7" fill="#334155">Inputs: ONLY Issue + PR Diff (tinydb/
+          first) + read-only pytest</text>
+        <text x="360" y="345" text-anchor="middle" font-size="8.9" font-weight="700" fill="#92400e">Disjoint Pool B:
+          Gemma 4 (26B/31B) → Groq (Llama-3.3-70B / gpt-oss-120b)</text>
+        <text x="360" y="361" text-anchor="middle" font-size="8.4" fill="#475569">Runtime check: BuilderSet ∩
+          ReviewerSet == ∅ · Output: review.md</text>
+        <text x="360" y="376" text-anchor="middle" font-size="8.4" fill="#b45309">FIX_DESIGN→S2 | FIX_CODE→S3 (max 2
+          rounds) | APPROVE→Human</text>
+
+        <rect x="556" y="280" width="116" height="108" rx="6" fill="#f0fdf4" stroke="#15803d" stroke-width="1.4" />
+        <text x="614" y="308" text-anchor="middle" font-size="10" font-weight="700" fill="#15803d">TinyDB CI</text>
+        <text x="614" y="324" text-anchor="middle" font-size="8.8" fill="#334155">ci.yml</text>
+        <text x="614" y="340" text-anchor="middle" font-size="8.4" fill="#475569">workflow_dispatch</text>
+        <text x="614" y="356" text-anchor="middle" font-size="8.6" fill="#15803d">pytest +</text>
+        <text x="614" y="370" text-anchor="middle" font-size="8.6" fill="#15803d">Hypothesis</text>
+
+        <!-- Connections between Job 1, CI, Job 2, and Human -->
+        <path d="M 340 242 L 340 264 L 614 264 L 614 278" fill="none" stroke="#15803d" stroke-width="1.3"
+          marker-end="url(#arr-grn)" />
+        <line x1="556" y1="334" x2="540" y2="334" stroke="#15803d" stroke-width="1.4" marker-end="url(#arr-grn)" />
+        <line x1="182" y1="334" x2="164" y2="334" stroke="#0369a1" stroke-width="1.5" marker-end="url(#arr)" />
+        <line x1="275" y1="280" x2="275" y2="258" stroke="#b45309" stroke-width="1.3" stroke-dasharray="4,2"
+          marker-end="url(#arr-amb)" />
+        <text x="234" y="272" text-anchor="middle" font-size="8" fill="#b45309">R2 feedback</text>
+      </svg>
+      <figcaption>Figure 1: Component View showing the two-job least-privilege isolation boundary, zero-LLM
+        orchestrator, AST tools, PBT-first TDD loop, disjoint model pools (Pool A vs. Pool B), and human merge gate.
+      </figcaption>
+    </figure>
+
+    <!-- TABLE 1: STAGE MAP -->
+    <table>
+      <thead>
+        <tr>
+          <th style="width:10%;">Stage</th>
+          <th style="width:18%;">Agent &amp; Model</th>
+          <th style="width:24%;">Inputs &amp; Tools</th>
+          <th style="width:13%;">Artifact(s)</th>
+          <th style="width:20%;">Gate Check</th>
+          <th style="width:15%;">Failure Routing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Req</strong></td>
+          <td><code>RequirementsAgent</code><br /><code>3.5-flash-lite</code></td>
+          <td>Sanitized issue JSON (<code>gh issue view</code>) + A1 <code>skill.md</code></td>
+          <td><code>spec.md</code></td>
+          <td>Unique <code>FR</code>/<code>AC</code>, Given/When/Then, 0 blocking <code>[UNRESOLVED]</code>,
+            <code>PASS</code>
+          </td>
+          <td>Write reason in <code>spec.md</code>, comment &amp; halt</td>
+        </tr>
+        <tr>
+          <td><strong>2. Design</strong></td>
+          <td><code>ExplorerDesign</code><br /><code>3.5-flash-lite</code></td>
+          <td><code>spec.md</code>, A2 <code>ARCHITECTURE.md</code>, AST <code>repo_map</code>,
+            <code>read_file_lines</code>
+          </td>
+          <td><code>design.md</code>,<br /><code>context.json</code></td>
+          <td>Valid <code>tinydb/</code> paths &amp; AST-verified or <code>[NEW]</code> symbols</td>
+          <td>Write gap in <code>design.md</code>, upload &amp; halt</td>
+        </tr>
+        <tr>
+          <td><strong>3. Impl</strong></td>
+          <td><code>Repro</code> + <code>Coder</code><br /><code>3.5-lite</code>×2 → <code>3.7</code>×1</td>
+          <td><code>spec.md</code>, <code>design.md</code>, AST Hypothesis sanitizer, <code>SEARCH/REPLACE</code></td>
+          <td><code>diff.patch</code>,<br /><code>status.md</code></td>
+          <td>Repro passes <code>--collect-only</code>; Coder passes <code>compileall</code> &amp; import</td>
+          <td>Symmetric 3-try loop for Repro &amp; Coder; halt</td>
+        </tr>
+        <tr>
+          <td><strong>4. Test</strong></td>
+          <td><code>Evaluator</code><br />(deterministic)</td>
+          <td><code>tests/test_issue_N_pbt.py</code> (<code>max_examples=50</code>) + full suite</td>
+          <td><code>test_report.md</code></td>
+          <td>All new PBT + boundary tests pass &amp; 0 regressions vs 228 baseline</td>
+          <td>Feed traceback / shrunk example to Stage 3</td>
+        </tr>
+        <tr>
+          <td><strong>5. Release</strong></td>
+          <td><code>DeliveryAgent</code><br /><code>3.5-flash-lite</code></td>
+          <td><code>git push</code>, <code>gh pr create</code>, <code>gh workflow run ci.yml</code></td>
+          <td><code>pr.md</code> + PR URL</td>
+          <td>PR is <code>OPEN</code> and <code>workflow_dispatch</code> CI ends <code>success</code></td>
+          <td>Write failure in <code>pr.md</code> &amp; halt (no merge)</td>
+        </tr>
+        <tr>
+          <td><strong>6. Review</strong></td>
+          <td><code>ReviewerAgent</code><br />Gemma 4 → Groq</td>
+          <td>Fresh PR HEAD; <strong>ONLY</strong> Issue + diff (<code>tinydb/</code> first) + RO <code>pytest</code>
+          </td>
+          <td><code>review.md</code>,<br /><code>review_usage</code></td>
+          <td><code>APPROVE</code> OR 2 rounds exhausted; pool disjointness assertion</td>
+          <td><code>FIX_DESIGN</code>→S2, <code>FIX_CODE</code>→S3 (≤2); human</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- FIGURE 2: SEQUENCE VIEW SVG (native A4 680px viewBox) -->
+    <figure>
+      <svg viewBox="0 0 680 302" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+        <!-- Actor Headers (6 balanced columns within 680px) -->
+        <rect x="6" y="6" width="84" height="28" rx="4" fill="#eff6ff" stroke="#1e3a8a" />
+        <text x="48" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#1e3a8a">Maintainer</text>
+
+        <rect x="104" y="6" width="114" height="28" rx="4" fill="#dbeafe" stroke="#1d4ed8" />
+        <text x="161" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#1e3a8a">Orchestrator
+          (J1)</text>
+
+        <rect x="232" y="6" width="116" height="28" rx="4" fill="#f1f5f9" stroke="#475569" />
+        <text x="290" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#0f172a">Gemini 3.5
+          Lite</text>
+
+        <rect x="362" y="6" width="88" height="28" rx="4" fill="#f0fdf4" stroke="#15803d" />
+        <text x="406" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#15803d">ci.yml (#23)</text>
+
+        <rect x="464" y="6" width="98" height="28" rx="4" fill="#fffbeb" stroke="#b45309" />
+        <text x="513" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#92400e">Reviewer (J2)</text>
+
+        <rect x="576" y="6" width="98" height="28" rx="4" fill="#fef3c7" stroke="#b45309" />
+        <text x="625" y="24" text-anchor="middle" font-size="9.2" font-weight="700" fill="#92400e">Groq 120B</text>
+
+        <!-- Lifelines -->
+        <line x1="48" y1="34" x2="48" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+        <line x1="161" y1="34" x2="161" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+        <line x1="290" y1="34" x2="290" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+        <line x1="406" y1="34" x2="406" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+        <line x1="513" y1="34" x2="513" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+        <line x1="625" y1="34" x2="625" y2="294" stroke="#94a3b8" stroke-dasharray="3,3" />
+
+        <!-- Step 1 -->
+        <line x1="48" y1="54" x2="159" y2="54" stroke="#1e3a8a" stroke-width="1.4" marker-end="url(#arr)" />
+        <text x="104" y="49" text-anchor="middle" font-size="8.4" fill="#0f172a">1. "/autose" #4</text>
+
+        <!-- Step 2 -->
+        <line x1="161" y1="78" x2="288" y2="78" stroke="#334155" stroke-width="1.3" marker-end="url(#arr)" />
+        <text x="225" y="73" text-anchor="middle" font-size="8.4" fill="#0f172a">2. S1: skill.md (3.4k tok)</text>
+        <line x1="290" y1="94" x2="163" y2="94" stroke="#15803d" stroke-width="1.2" stroke-dasharray="3,2"
+          marker-end="url(#arr-grn)" />
+        <text x="225" y="90" text-anchor="middle" font-size="8.2" fill="#15803d">spec.md (AC-1..4 PASS)</text>
+
+        <!-- Step 3 -->
+        <line x1="161" y1="116" x2="288" y2="116" stroke="#334155" stroke-width="1.3" marker-end="url(#arr)" />
+        <text x="225" y="111" text-anchor="middle" font-size="8.4" fill="#0f172a">3. S2: ARCH + AST (14k)</text>
+        <line x1="290" y1="132" x2="163" y2="132" stroke="#15803d" stroke-width="1.2" stroke-dasharray="3,2"
+          marker-end="url(#arr-grn)" />
+        <text x="225" y="128" text-anchor="middle" font-size="8.2" fill="#15803d">design.md (operations.py)</text>
+
+        <!-- Step 4 -->
+        <line x1="161" y1="154" x2="288" y2="154" stroke="#334155" stroke-width="1.3" marker-end="url(#arr)" />
+        <text x="225" y="149" text-anchor="middle" font-size="8.4" fill="#0f172a">4. S3/S4: PBT + Coder (10.9k)</text>
+        <line x1="290" y1="170" x2="163" y2="170" stroke="#15803d" stroke-width="1.2" stroke-dasharray="3,2"
+          marker-end="url(#arr-grn)" />
+        <text x="225" y="166" text-anchor="middle" font-size="8.2" fill="#15803d">236 passed (Attempt 1!)</text>
+
+        <!-- Step 5 -->
+        <line x1="161" y1="194" x2="404" y2="194" stroke="#15803d" stroke-width="1.4" marker-end="url(#arr-grn)" />
+        <text x="282" y="189" text-anchor="middle" font-size="8.4" fill="#15803d">5. S5: push 3970275, PR #23, dispatch
+          CI (44897037757)</text>
+        <line x1="406" y1="210" x2="163" y2="210" stroke="#15803d" stroke-width="1.2" stroke-dasharray="3,2"
+          marker-end="url(#arr-grn)" />
+        <text x="282" y="206" text-anchor="middle" font-size="8.2" fill="#15803d">CI conclusion=success (pr.md)</text>
+
+        <!-- Step 6 -->
+        <line x1="161" y1="232" x2="511" y2="232" stroke="#b45309" stroke-width="1.4" marker-end="url(#arr-amb)" />
+        <text x="336" y="227" text-anchor="middle" font-size="8.4" fill="#92400e">6. Trigger isolated Job 2 (RO; zero
+          S1–S5 traces passed)</text>
+
+        <line x1="513" y1="252" x2="623" y2="252" stroke="#b45309" stroke-width="1.3" marker-end="url(#arr-amb)" />
+        <text x="568" y="247" text-anchor="middle" font-size="8.2" fill="#92400e">Gemma 503 → Groq</text>
+        <line x1="625" y1="268" x2="515" y2="268" stroke="#15803d" stroke-width="1.2" stroke-dasharray="3,2"
+          marker-end="url(#arr-grn)" />
+        <text x="568" y="264" text-anchor="middle" font-size="8.2" fill="#15803d">APPROVE (6.6k tok)</text>
+
+        <!-- Step 7 -->
+        <line x1="513" y1="286" x2="50" y2="286" stroke="#0369a1" stroke-width="1.5" marker-end="url(#arr)" />
+        <text x="282" y="282" text-anchor="middle" font-size="8.6" font-weight="700" fill="#0369a1">7. PR #23 Review
+          posted (3m 20s total) — Human decides Merge or Close</text>
+      </svg>
+      <figcaption>Figure 2: Sequence View of real Run <code>44896952319</code> (Issue #4 → PR #23, 6 calls, 38,216
+        tokens, 3/3 hidden tests passed).</figcaption>
+    </figure>
+
+    <!-- ==================== SECTION 2: DESIGN DECISIONS ==================== -->
+    <div class="page-break"></div>
+    <h2>2. Design Decisions (ADRs)</h2>
+    <p>
+      All ten architectural decisions (D1–D10) were committed in Michael Nygard's format under
+      <code>architecture/decisions/</code> <strong>before writing workflow code</strong> (PR #6, commit
+      <code>033a4a0</code>). Whenever live runs exposed flaws, superseded ADR versions were archived under
+      <code>architecture/decisions/archive/</code> (<code>&lt;name&gt;_v&lt;N&gt;.md</code>) rather than overwritten,
+      preserving a verifiable evolution trace.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:7%;">ADR</th>
+          <th style="width:13%;">Decision</th>
+          <th style="width:24%;">Chosen Option</th>
+          <th style="width:19%;">Main Rejected</th>
+          <th style="width:25%;">Main Reason</th>
+          <th style="width:12%;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>001</strong></td>
+          <td>D1: Agent split</td>
+          <td>5 specialized sequential builder roles + 1 isolated Reviewer</td>
+          <td>Single monolithic agent; parallel Explorer fan-out</td>
+          <td>Stops review bias; avoids free-tier RPM <code>429</code> on 7-file TinyDB</td>
+          <td>Accepted (v1)</td>
+        </tr>
+        <tr>
+          <td><strong>002</strong></td>
+          <td>D2: Control flow</td>
+          <td>Zero-LLM orchestrator + symmetric 3-try Repro/Coder loops + 2-round DAG</td>
+          <td>LLM router/planner; unbounded single-job loop</td>
+          <td>Guarantees stage gates, OS-level reviewer isolation, bounded retries</td>
+          <td>Accepted (v4; v1–3 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>003</strong></td>
+          <td>D3: Hand-offs</td>
+          <td>Structured stage artifacts; Reviewer sees only issue + diff + repo</td>
+          <td>Raw chat transcripts or full repo dumps</td>
+          <td>Cuts tokens and eliminates implementer confirmation bias</td>
+          <td>Accepted (v1)</td>
+        </tr>
+        <tr>
+          <td><strong>004</strong></td>
+          <td>D4: State</td>
+          <td>Code on <code>autose/issue-N</code>; stage outputs in Actions artifacts; review on PR</td>
+          <td>Committing artifacts to PR branch; Actions cache</td>
+          <td>Keeps PR diff clean and artifacts inspectable per run</td>
+          <td>Accepted (v1)</td>
+        </tr>
+        <tr>
+          <td><strong>005</strong></td>
+          <td>D5: Tools</td>
+          <td>Python <code>ast</code> repo-map + <code>SEARCH/REPLACE</code> + dev-only <code>hypothesis</code> +
+            <code>gh</code>
+          </td>
+          <td>Tree-sitter binaries; GitHub MCP; whole-file rewrites</td>
+          <td>Zero C-build risk, fewer syntax errors, inherits job token scope</td>
+          <td>Accepted (v2; v1 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>006</strong></td>
+          <td>D6: Models</td>
+          <td>Gemini 3.x (S1–S5) + Gemma 4 (S6) + Groq failover (60s HTTP timeout)</td>
+          <td>Deprecated Gemini 2.5; retired GitHub Models; laptop Ollama</td>
+          <td>$0 cap, live availability, cross-provider uptime, fork safety</td>
+          <td>Accepted (v6; v1–5 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>007</strong></td>
+          <td>D7: Checks</td>
+          <td>PBT-first (Hypothesis + AST sanitizer + <code>--collect-only</code>) + <code>workflow_dispatch</code> CI
+          </td>
+          <td>LLM-only judge; example-only tests; unfiltered <code>gh run list</code></td>
+          <td>Prevents happy-path overfitting, catches PBT bugs early, stable CI</td>
+          <td>Accepted (v4; v1–3 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>008</strong></td>
+          <td>D8: Reviewer</td>
+          <td>Separate RO job (<code>contents: read</code>), fresh PR checkout, <code>Pool A ∩ Pool B = ∅</code></td>
+          <td>In-process review; shared fallback models</td>
+          <td>Platform-enforced non-push and zero-overlap failover diversity</td>
+          <td>Accepted (v4; v1–3 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>009</strong></td>
+          <td>D9: Safety</td>
+          <td>Untrusted delimiters, path allowlist, 200k/20-call caps (<code>429</code>/<code>503</code> uncounted), VM
+          </td>
+          <td>Shell interpolation; E2B microVMs; counting <code>503</code> outages</td>
+          <td>Blocks script/prompt injection; outages don't abort healthy runs</td>
+          <td>Accepted (v2; v1 arch.)</td>
+        </tr>
+        <tr>
+          <td><strong>010</strong></td>
+          <td>D10: Triggers</td>
+          <td><code>issues:labeled</code> (<code>autose</code>) + <code>issue_comment</code> (<code>/autose</code>),
+            <code>OWNER</code> guard, concurrency
+          </td>
+          <td>Auto-run on <code>issues:opened</code>; <code>cancel-in-progress: true</code></td>
+          <td>Prevents unauthorized fork spend and mid-push branch races</td>
+          <td>Accepted (v1)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Deep-Dive on the Three Decisions That Mattered Most</h3>
+
+    <p><strong>1. Strictly Disjoint, Job-Isolated Reviewer Independence (D8 — <code>ADR-008</code> v1 → v4):</strong>
+      Preventing rubber-stamp reviews required isolation across four layers simultaneously: (a) <em>runner
+        isolation</em> via a separate GitHub Actions job (<code>round1_review</code> / <code>round2_review</code>)
+      checking out PR HEAD fresh; (b) <em>permission isolation</em> granting only <code>contents: read</code> and
+      <code>pull-requests: write</code> so pushing commits is impossible at the GitHub token layer; (c) <em>context
+        isolation</em> downloading zero Stage 1–5 artifacts (no <code>spec.md</code>, <code>design.md</code>, or coder
+      logs) while prioritizing <code>tinydb/</code> production diffs ahead of <code>tests/</code> diffs so long PBT
+      files never truncate production code; and (d) <em>mathematical model disjointness</em>. When adding Groq failover
+      in <code>ADR-006</code> v6, we noticed overlapping fallback lists could silently collapse builder and reviewer
+      onto the same model during a <code>503</code> cascade. In <code>ADR-008</code> v4 we partitioned pools
+      strictly—<strong>Pool A (Stages 1–5):</strong> Gemini 3.x → Groq <code>qwen3-32b</code> / <code>gpt-oss-20b</code>
+      / <code>llama-3.1-8b</code>; <strong>Pool B (Stage 6):</strong> Gemma 4 (26B/31B) → Groq
+      <code>llama-3.3-70b-versatile</code> / <code>openai/gpt-oss-120b</code>—enforced by a startup assertion
+      (<code>BuilderSet ∩ ReviewerSet == ∅</code>) in <code>stage6_review.py</code>. Combined with a 6-point adversarial
+      checklist requiring file/line evidence, this delivered genuine cross-family (Issues #1–#2) and cross-provider
+      (Issues #3–#4) reviews.
+    </p>
+
+    <p><strong>2. PBT-First Hybrid Deterministic Gates &amp; Symmetric ReproAgent Loop (D7 &amp; D2 —
+        <code>ADR-007</code> v1 → v4, <code>ADR-002</code> v4):</strong>
+      LLM-generated unit tests routinely overfit to literal examples copied from an issue description. Making
+      <strong>Property-Based Testing (Hypothesis <code>@given</code>, <code>max_examples=50</code>,
+        <code>derandomize=True</code>, dev-only)</strong> our primary test strategy forced agents to verify universal
+      invariants—such as query-cache isolation across arbitrary field names, generator repeatability across arbitrary
+      lists, and key conservation under <code>rename</code>. Live runs exposed three real PBT-generation pitfalls that
+      shaped our architecture: (i) Run <code>44884332705</code> failed collection (<code>rc=2</code>) because
+      <code>ReproAgent</code> hallucinated <code>st.recursive(..., max_depth=...)</code>; (ii) Run
+      <code>44885745409</code> passed 233/234 tests but tripped <code>HealthCheck.filter_too_much</code> on
+      <code>st.text().filter(isidentifier)</code>; and (iii) Run <code>44896309810</code> failed because
+      <code>ReproAgent</code> called <code>db.get(doc_id)</code> positionally instead of
+      <code>db.get(doc_id=doc_id)</code>. Rather than abandoning PBT, we built an AST-safe deterministic sanitizer
+      (<code>_harden_hypothesis_settings</code>), a static PBT linter, a <code>pytest --collect-only</code> +
+      harness-error gate, and a <strong>symmetric 3-attempt escalation loop for <code>ReproAgent</code></strong>
+      mirroring <code>CoderAgent</code>. Similarly, Run <code>44881708823</code> revealed that Stage 5's unfiltered
+      <code>gh run list</code> read an <code>action_required</code> <code>pull_request</code> event instead of our
+      passing <code>workflow_dispatch</code> CI run (<code>44881876871</code>), prompting the deterministic
+      <code>--event workflow_dispatch</code> filter in <code>ADR-007</code> v3.
+    </p>
+
+    <p><strong>3. Zero-Cost Multi-Provider Allocation &amp; Resilient Failover (D6 &amp; D9 — <code>ADR-006</code> v1 →
+        v6, <code>ADR-009</code> v2):</strong>
+      Operating under a strict $0 free-tier cap forced six evidence-driven iterations of <code>ADR-006</code>: migrating
+      off deprecated Gemini 2.5 (v1→v2); probing live endpoints to eliminate <code>429</code>-blocked
+      <code>gemini-4-*</code> and <code>503</code>-throttled <code>gemini-3.8-flash</code> (v2→v3); discovering in Run
+      <code>44888379411</code> that standalone GitHub Models (<code>models.github.ai</code>) was retired even with a
+      fine-grained PAT (v3→v5); and adding Groq Free Tier failover, trimming <code>CoderAgent</code> prompts below
+      <code>gemma-4-31b</code>'s 16,000 input-TPM cap, setting a 60-second <code>HttpOptions</code> socket timeout
+      (fixing Issue #3's 10-minute hang in Run <code>44893738117</code>), and formally excluding transient
+      <code>429</code>/<code>503</code> provider outages from all call/token/retry budgets (<code>ADR-009</code> v2).
+      Keeping the orchestrator 100% deterministic Python (0 LLM calls) preserved daily quotas strictly for reasoning
+      stages.
+    </p>
+
+    <!-- ==================== SECTION 3: RESULTS ==================== -->
+    <div class="page-break"></div>
+    <h2>3. Results</h2>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-val">4 / 4 (100%)</div>
+        <div class="kpi-lbl">Concrete Issues Passed All 6 Stages</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">13 / 13 (100%)</div>
+        <div class="kpi-lbl">Hidden Tests Passed (0 Regressions)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">1 / 1 Halt</div>
+        <div class="kpi-lbl">Vague Issue #5 Blocked Safely at S1</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">254,262 tokens</div>
+        <div class="kpi-lbl">31 Calls Across 5 Runs ($0.00 Spend)</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:7%;">Issue</th>
+          <th style="width:16%;">Type &amp; Target</th>
+          <th style="width:14%;">Run &amp; PR</th>
+          <th style="width:14%;">Stages &amp; CI</th>
+          <th style="width:9%;">Tries (R/C)</th>
+          <th style="width:17%;">Reviewer &amp; Verdict</th>
+          <th style="width:9%;">Hidden</th>
+          <th style="width:14%;">Tokens (Calls)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>#1</strong></td>
+          <td>Bug:<br /><code>Query.fragment</code></td>
+          <td><code>44889647759</code><br />PR #8</td>
+          <td><span class="badge-pass">6 / 6 PASS</span><br /><span class="small">CI 44889975396</span></td>
+          <td>R: 2<br />C: 2</td>
+          <td><code>gemma-4-26b-a4b-it</code><br /><strong>APPROVE</strong> (R1)</td>
+          <td><span class="badge-pass">3 / 3</span></td>
+          <td><code>69,796</code><br /><span class="small">8 calls · 8 err</span></td>
+        </tr>
+        <tr>
+          <td><strong>#2</strong></td>
+          <td>Bug:<br /><code>Query.one_of</code></td>
+          <td><code>44893078088</code><br />PR #17</td>
+          <td><span class="badge-pass">6 / 6 PASS</span><br /><span class="small">CI 44893202098</span></td>
+          <td>R: 1<br />C: 2</td>
+          <td><code>gemma-4-31b-it</code><br /><strong>APPROVE</strong> (R1)</td>
+          <td><span class="badge-pass">3 / 3</span></td>
+          <td><code>63,923</code><br /><span class="small">7 calls · 3 err</span></td>
+        </tr>
+        <tr>
+          <td><strong>#3</strong></td>
+          <td>Feature:<br /><code>Query.between</code></td>
+          <td><code>44895102946</code><br />PR #20</td>
+          <td><span class="badge-pass">6 / 6 PASS</span><br /><span class="small">CI 44895821801</span></td>
+          <td>R: 3<br />C: 2</td>
+          <td>Groq <code>gpt-oss-120b</code><br /><strong>APPROVE</strong> (R1)</td>
+          <td><span class="badge-pass">4 / 4</span></td>
+          <td><code>79,174</code><br /><span class="small">9 calls · 10 err</span></td>
+        </tr>
+        <tr>
+          <td><strong>#4</strong></td>
+          <td>Feature:<br /><code>ops.rename</code></td>
+          <td><code>44896952319</code><br />PR #23</td>
+          <td><span class="badge-pass">6 / 6 PASS</span><br /><span class="small">CI 44897037757</span></td>
+          <td>R: 1<br />C: 1</td>
+          <td>Groq <code>gpt-oss-120b</code><br /><strong>APPROVE</strong> (R1)</td>
+          <td><span class="badge-pass">3 / 3</span></td>
+          <td><code>38,216</code><br /><span class="small">6 calls · 6 err</span></td>
+        </tr>
+        <tr>
+          <td><strong>#5</strong></td>
+          <td>Vague:<br />messy docs</td>
+          <td><code>44897372948</code><br />No PR</td>
+          <td><span class="badge-halt">HALT at S1</span><br /><span class="small">Ambiguous spec</span></td>
+          <td>0 / 0</td>
+          <td>N/A<br />(halted at S1)</td>
+          <td>N/A<br /><span class="small">(correct)</span></td>
+          <td><code>3,153</code><br /><span class="small">1 call · 0 err</span></td>
+        </tr>
+        <tr>
+          <td colspan="2"><strong>Aggregate (5 Runs)</strong></td>
+          <td>All linked in <code>runs.md</code></td>
+          <td>S1: 4+1 halt<br />S2–S6: 4/4</td>
+          <td>Avg R: 1.75<br />Avg C: 1.75</td>
+          <td>4/4 R1 APPROVE<br />(2 Gemma, 2 Groq)</td>
+          <td><strong>13 / 13</strong><br /><span class="small">0 regr.</span></td>
+          <td><strong><code>254,262</code></strong><br /><span class="small">31 calls · 27 err</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Per-Stage Pass Rates &amp; Vague Issue #5 Behavior</h3>
+    <p>
+      Across the five final runs, Stage 1 passed on 4/5 issues (80%) and <strong>intentionally halted</strong> on vague
+      Issue #5 (Run <code>44897372948</code>). Inspecting Issue #5's uploaded <code>spec.md</code> confirms that our A1
+      Requirements Skill performed exactly as intended: it flagged two blocking <code>[UNRESOLVED]</code> public-API
+      questions—<code>Q-1</code> (whether incomparable types like <code>None</code>/<code>str</code> should silently
+      evaluate to <code>False</code> globally across all comparison operators or via opt-in configuration) and
+      <code>Q-2</code> (whether changing <code>operations.delete</code> to skip missing keys violates TinyDB's existing
+      <code>KeyError</code> contract)—and halted cleanly in 1 call (3,153 tokens) rather than silently shipping breaking
+      changes. Among the 4 issues that cleared Stage 1, pass rates for Stages 2, 3, 4, 5, and 6 were <strong>4/4
+        (100%)</strong>, with our self-healing loops actively earning their keep: <code>ReproAgent</code> auto-repaired
+      PBT harness issues on Issues #1 (2 attempts) and #3 (3 attempts), and <code>CoderAgent</code> self-corrected test
+      failures via Stage 4 tracebacks on Issues #1, #2, and #3 before passing on Attempt 2 (while Issue #4 passed
+      cleanly on Attempt 1 in 3m 20s).
+    </p>
+
+    <h3>Hidden Acceptance Tests &amp; Independent Reviewer Analysis</h3>
+    <p>
+      Evaluating each open PR locally against our external hidden <code>pytest</code> suites (kept outside the
+      repository during all runs) achieved <strong>13 / 13 (100%)</strong>: Issue #1 PR #8 (3/3—path cache isolation,
+      non-mapping safety, empty-fragment root/nested matching), Issue #2 PR #17 (3/3—generator multi-doc matching,
+      reusability, hash cache), Issue #3 PR #20 (4/4—inclusive/exclusive bounds, cache isolation across
+      <code>inclusive</code>, missing/incomparable/empty-path guards), and Issue #4 PR #23 (3/3—move/remove, self-rename
+      &amp; overwrite, missing-key <code>KeyError</code>), with <strong>zero regressions</strong> against TinyDB's 228
+      baseline tests.
+    </p>
+    <ul>
+      <li><strong>What the Independent Reviewers Caught &amp; Verified:</strong> Every Stage 6 review ran in a fresh
+        read-only runner with zero upstream traces and produced grounded, line-cited audits: on PR #8,
+        <code>gemma-4-26b-a4b-it</code> verified <code>tinydb/queries.py:499</code>'s hash tuple and
+        <code>LRUCache</code> PBT coverage; on PR #17, <code>gemma-4-31b-it</code> verified tuple materialization before
+        <code>freeze()</code> at line 484; on PR #20, Groq's <code>openai/gpt-oss-120b</code> audited
+        <code>between</code> lines +486–+512 and correctly noted that callers are expected to pass
+        <code>low &lt;= high</code>; and on PR #23, <code>openai/gpt-oss-120b</code> caught a subtle implementation
+        detail—that <code>pop</code> + reassign on self-rename (<code>rename('a', 'a')</code>) alters Python dict
+        insertion order—and noted optional <code>__all__</code> exposure.
+      </li>
+      <li><strong>Where the Reviewer Was Limited / Could Be Stricter:</strong> None of the 4 PRs triggered a blocking
+        <code>FIX_CODE</code> or <code>FIX_DESIGN</code> Round-2 loop. While this partly reflects strong upstream PBT
+        filtering in Stage 4 (which already eliminated functional bugs before PR creation), the reviewer on PR #23
+        arguably could have flagged the unnecessary <code>pop</code>+reassign on <code>old_field == new_field</code> as
+        a minor <code>FIX_CODE</code> request (since Issue #4 stated "leave the document unchanged") rather than a
+        non-blocking note. Consequently, our Round 2 re-entry jobs (<code>round2_build</code> →
+        <code>round2_review</code>) were verified structurally in YAML/orchestrator logic rather than empirically
+        exercised by a defective PR.
+      </li>
+    </ul>
+
+    <!-- ==================== SECTION 4: HINDSIGHT ==================== -->
+    <h2>4. Hindsight</h2>
+    <p>
+      If we started again tomorrow, the <strong>first decision we would change</strong> is building a <strong>pre-flight
+        provider health probe + cross-provider failover + strict 60-second HTTP timeout on Day 1</strong> (what took us
+      six revisions of <code>ADR-006</code> and multiple failed runs to discover). We lost substantial engineering time
+      discovering reactively that Gemini 2.5 was deprecated, that standalone GitHub Models was retired, that
+      <code>gemma-4-31b-it</code> enforces a 16k free-tier input-TPM limit, and that <code>google-genai</code> lacked a
+      default HTTP timeout (causing Issue #3's Stage 6 job to hang for 10 minutes). Second, we would pair PBT-first test
+      generation with a deterministic AST linter and library-specific API rules (e.g., <code>Query()[field]</code>,
+      <code>db.get(doc_id=doc_id)</code>) from the very first commit rather than discovering Hypothesis's
+      <code>st.recursive(max_depth=...)</code> and <code>HealthCheck.filter_too_much</code> failure modes during live
+      runs.
+    </p>
+
+    <!-- ==================== SECTION 5: LIMITATIONS & THREATS TO VALIDITY ==================== -->
+    <h2>5. Limitations and Threats to Validity</h2>
+    <ol>
+      <li><strong>Small Sample Size &amp; Single Compact Repository (External Validity):</strong> All five evaluation
+        issues target TinyDB (~1,500 LOC, 7 pure-Python modules). Sending full target files to <code>CoderAgent</code>
+        and using Python's <code>ast</code> for <code>repo_map</code> work effortlessly at this scale, but larger or
+        polyglot repositories would require line-range chunked editing and Tree-sitter parsing to stay within context
+        windows and TPM limits.</li>
+      <li><strong>Round-2 Review Routing Not Empirically Exercised (Internal Validity):</strong> Because Stage 4's
+        PBT-first loop caught functional defects before Stage 5 and all 4 concrete PRs earned Round-1
+        <code>APPROVE</code>, the <code>round2_build</code> → <code>round2_review</code> DAG transition was validated
+        through code inspection rather than a live defective-PR round-trip.
+      </li>
+      <li><strong>Free-Tier Provider Volatility &amp; Privacy Constraints (Reliability / Construct Validity):</strong>
+        We logged 27 transient <code>429</code>/<code>503</code> errors across the 5 final runs, causing Stage 6 to fail
+        over from Gemma 4 to Groq's <code>openai/gpt-oss-120b</code> on Issues #3 and #4. While uncounted retries and
+        disjoint failover kept reliability at 100%, model swaps introduce non-determinism across runs, and Google AI
+        Studio's free-tier data-use terms preclude using this exact setup on private proprietary repositories.</li>
+      <li><strong>GitHub Actions Bot Identity Constraint on Review States:</strong> Because both Job 1 and Job 2
+        authenticate with the repository's <code>GITHUB_TOKEN</code> (<code>github-actions[bot]</code>), GitHub's API
+        rejects <code>--approve</code> and <code>--request-changes</code> on a PR authored by the same bot identity;
+        Stage 6 therefore posts reviews via <code>gh pr review --comment</code> with an explicit structured verdict
+        banner. A dedicated GitHub App identity for Stage 6 would enable native GitHub approval/request-changes states.
+      </li>
+      <li><strong>Residual Prompt-Injection &amp; Sandboxing Surface:</strong> Although we avoid shell interpolation of
+        issue text, wrap untrusted content in <code>&lt;untrusted_issue_data&gt;</code> delimiters, enforce
+        <code>tinydb/</code> + <code>tests/</code> write allowlists, and execute code inside ephemeral GitHub Actions
+        VMs, a sophisticated adversarial prompt inside an authorized issue could still bias natural-language specs, and
+        <code>pytest</code> currently runs with runner network access rather than inside a
+        <code>docker run --network=none</code> container.
+      </li>
+    </ol>
+
+    <p class="small" style="margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 5px;">
+      <strong>Artifacts &amp; Verification:</strong> All 10 ADRs (+ 16 archived superseded versions) are in
+      <code>architecture/decisions/</code>; views in <code>architecture/views/</code>; workflow code and A1
+      <code>skill.md</code> in <code>workflow/</code>; issue texts and hidden tests in <code>experiment/</code>; and
+      complete clickable run/PR/CI/review links in <code>results/runs.md</code> and <code>results/results.csv</code>.
+    </p>
+
+  </div>
+</body>
+
+</html>

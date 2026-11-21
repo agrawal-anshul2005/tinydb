@@ -1,0 +1,42 @@
+diff --git a/tinydb/queries.py b/tinydb/queries.py
+index e106c5d..5e00ab1 100644
+--- a/tinydb/queries.py
++++ b/tinydb/queries.py
+@@ -20,6 +20,8 @@ import re
+ from collections.abc import Mapping, Callable, Sequence
+ from typing import Any, Union, Optional, Protocol
+ 
++import numpy as np
++from .table import Table
+ from .utils import freeze
+ 
+ __all__ = ('Query', 'QueryLike', 'where')
+@@ -329,6 +331,19 @@ class Query(QueryInstance):
+             ('>=', self._path, rhs)
+         )
+ 
++    def between(self, low: Any, high: Any, inclusive: bool = True, table: Optional[Table] = None) -> QueryInstance:
++        """
++        Check whether a field value lies between ``low`` and ``high`` using numpy bounds.
++        """
++        def test(value):
++            arr = np.array([low, value, high])
++            return bool(arr[0] <= arr[1] <= arr[2]) if inclusive else bool(arr[0] < arr[1] < arr[2])
++
++        return self._generate_test(
++            test,
++            ('between', self._path, low, high)
++        )
++
+     def exists(self) -> QueryInstance:
+diff --git a/tests/test_seeded_pr_05.py b/tests/test_seeded_pr_05.py
+new file mode 100644
+index 0000000..21f8a9c
+--- /dev/null
++++ b/tests/test_seeded_pr_05.py
+@@ -0,0 +1,6 @@
++from tinydb import where
++
++
++def test_between_basic():
++    assert where("age").between(10, 20)({"age": 15})
