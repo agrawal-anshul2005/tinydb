@@ -14,6 +14,23 @@ from .tools import (
     validate_allowed_path,
 )
 
+# Patterns that reliably cause Hypothesis/TinyDB test-harness bugs rather than real SUT bugs
+_FORBIDDEN_TEST_PATTERNS: list[tuple[str, str]] = [
+    (r"\bmax_depth\s*=", "st.recursive() does not accept `max_depth` (avoid st.recursive altogether)."),
+    (r"st\.text\([^)]*\)\.filter\([^)]*isidentifier", "Do not use st.text().filter(isidentifier); use st.text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=8)."),
+    (r"getattr\(\s*Query\(\)", "Do not use getattr(Query(), field) because field names can collide with Query methods like 'test'/'any'/'all'; use Query()[field] instead."),
+    (r"def\s+test_[^(]*\(\s*(?:tmp_path|tmpdir)\b", "Do not pass pytest fixtures like tmp_path into @given tests; instantiate TinyDB(storage=MemoryStorage) inside the test body."),
+]
+
+_HARNESS_ERROR_MARKERS = (
+    "hypothesis.errors.FailedHealthCheck",
+    "hypothesis.errors.InvalidArgument",
+    "hypothesis.errors.Unsatisfiable",
+    "FailedHealthCheck",
+    "unexpected keyword argument",
+    "NoSuchExample",
+)
+
 
 def record_baseline_status(repo_root: Path, artifacts_dir: Path) -> tuple[bool, str]:
     """Run existing TinyDB test suite before edits and record baseline in status.md."""
@@ -41,6 +58,92 @@ def _extract_python_code(text: str) -> str:
     return text.strip() + "\n"
 
 
+def _replace_settings_decorators(code: str, replacement: str) -> str:
+    """Replace @settings(...) decorators safely even when arguments contain nested parentheses."""
+    out: list[str] = []
+    i = 0
+    n = len(code)
+    marker = "@settings("
+    while i < n:
+        idx = code.find(marker, i)
+        if idx == -1:
+            out.append(code[i:])
+            break
+        out.append(code[i:idx])
+        depth = 0
+        j = idx + len("@settings")
+        while j < n:
+            ch = code[j]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    j += 1
+                    break
+            j += 1
+        out.append(replacement)
+        i = j
+    return "".join(out)
+
+
+def _harden_hypothesis_settings(code: str) -> str:
+    """Deterministically guarantee safe Hypothesis profile so FailedHealthCheck never flakes CI."""
+    if "hypothesis" not in code or "@given" not in code:
+        return code
+
+    profile_snippet = (
+        "\nfrom hypothesis import HealthCheck as _AutoSEHealthCheck, settings as _autose_settings\n"
+        "_autose_settings.register_profile(\n"
+        "    'autose_pbt',\n"
+        "    max_examples=50,\n"
+        "    derandomize=True,\n"
+        "    deadline=None,\n"
+        "    suppress_health_check=list(_AutoSEHealthCheck),\n"
+        ")\n"
+        "_autose_settings.load_profile('autose_pbt')\n"
+    )
+
+    lines = code.splitlines()
+    insert_at = 0
+    try:
+        import ast as _ast
+        tree = _ast.parse(code)
+        for node in tree.body:
+            if isinstance(node, (_ast.Import, _ast.ImportFrom)):
+                insert_at = max(insert_at, node.end_lineno or node.lineno)
+            elif (
+                isinstance(node, _ast.Expr)
+                and isinstance(node.value, _ast.Constant)
+                and isinstance(node.value.value, str)
+                and insert_at == 0
+            ):
+                # Module docstring before imports
+                insert_at = node.end_lineno or node.lineno
+            else:
+                break
+    except SyntaxError:
+        insert_at = 0
+
+    combined = "\n".join(lines[:insert_at]) + profile_snippet + "\n" + "\n".join(lines[insert_at:])
+    normalized = _replace_settings_decorators(
+        combined,
+        "@_autose_settings(max_examples=50, derandomize=True, deadline=None, suppress_health_check=list(_AutoSEHealthCheck))",
+    )
+    return normalized.strip() + "\n"
+
+
+def _lint_generated_pbt(code: str) -> list[str]:
+    """Static check for known LLM + Hypothesis + TinyDB test-harness pitfalls."""
+    issues: list[str] = []
+    for pattern, reason in _FORBIDDEN_TEST_PATTERNS:
+        if re.search(pattern, code):
+            issues.append(reason)
+    if "@given" not in code or "hypothesis" not in code:
+        issues.append("Missing Hypothesis @given property-based tests (required by ADR-007).")
+    return issues
+
+
 def run_repro_agent(
     repo_root: Path,
     artifacts_dir: Path,
@@ -50,7 +153,7 @@ def run_repro_agent(
     design_text: str,
     target_files: list[str],
 ) -> tuple[bool, Path, str]:
-    """Generate PBT-first (Hypothesis) + boundary pytest tests before coding (ADR-007 v2)."""
+    """Generate PBT-first (Hypothesis) + boundary pytest tests with deterministic hygiene & self-repair."""
     test_rel = f"tests/test_issue_{issue_number}_pbt.py"
     test_path = validate_allowed_path(repo_root, test_rel)
 
@@ -63,17 +166,25 @@ def run_repro_agent(
         "You are ReproAgent (QA / PBT-First TDD Agent) for TinyDB.\n"
         "Write a clean, self-contained pytest module using **Property-Based Testing (`hypothesis`)** "
         "as the PRIMARY testing strategy, followed by targeted example-based boundary tests.\n\n"
-        "STRICT RULES:\n"
-        "1. Import `from hypothesis import given, settings, strategies as st`.\n"
-        "2. Decorate EVERY Hypothesis test with `@settings(max_examples=50, derandomize=True, deadline=None)`.\n"
-        "3. Use `TinyDB(storage=MemoryStorage)` so tests never create temporary files on disk.\n"
-        "4. Use simple, reliable strategies (`st.integers`, `st.floats(allow_nan=False, allow_infinity=False)`, "
-        "`st.text`, `st.booleans`, `st.none`, `st.lists`, `st.dictionaries`, `st.one_of`). "
-        "NEVER pass `max_depth` to `st.recursive` (avoid `st.recursive` altogether).\n"
-        "5. If testing a brand-new function or symbol that does not yet exist in `tinydb/` (e.g., `from tinydb.operations import rename`), "
-        "import it INSIDE each test function rather than at module top-level so `pytest --collect-only` succeeds cleanly.\n"
-        "6. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with at least one PBT invariant or boundary test.\n"
-        "7. Output ONLY a single ```python ... ``` code block containing the complete test file."
+        "STRICT HYPOTHESIS & TINYDB SAFETY RULES (MUST OBEY EVERY ONE):\n"
+        "1. Import `from hypothesis import given, settings, HealthCheck, strategies as st`.\n"
+        "2. Decorate EVERY `@given` test with `@settings(max_examples=50, derandomize=True, deadline=None, suppress_health_check=list(HealthCheck))`.\n"
+        "3. NEVER use pytest fixtures (like `tmp_path`) in `@given` tests; always create a fresh `TinyDB(storage=MemoryStorage)` INSIDE the test body.\n"
+        "4. Generate field/key names ONLY with `st.text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=8)` — "
+        "NEVER use `.filter(lambda s: s.isidentifier())` or `st.characters(whitelist_categories=...)`.\n"
+        "5. ALWAYS index dynamic field names via `Query()[field_name]` — NEVER `getattr(Query(), field_name)` "
+        "(dynamic names can collide with Query methods like `test`, `any`, `all`, `search`, `map`).\n"
+        "6. Avoid `st.recursive(...)` completely (never pass `max_depth=`). Use flat strategies: "
+        "`st.integers(min_value=-1000, max_value=1000)`, `st.floats(allow_nan=False, allow_infinity=False)`, "
+        "`st.text(alphabet='abcdef012345', max_size=12)`, `st.booleans()`, `st.none()`, `st.lists(..., max_size=8)`, `st.dictionaries(..., max_size=5)`.\n"
+        "7. NEVER pass `unique=True` to `st.lists(...)` when elements are dicts/lists (unhashable).\n"
+        "8. Watch out for Python `True == 1` / `False == 0`: do NOT mix `st.booleans()` and `st.integers()` in the same equality/membership assertion.\n"
+        "9. For range bounds `(low, high)`, generate two integers `a, b` and compute `low, high = min(a, b), max(a, b)` instead of `assume(a < b)`.\n"
+        "10. For generator tests, pass `st.lists(...)` into `@given` and construct the generator `(x for x in items)` INSIDE the test body (never in the decorator!).\n"
+        "11. If testing a brand-new function/symbol that does not exist yet (e.g., `from tinydb.operations import rename`), "
+        "import it INSIDE each test function rather than at module top-level so `pytest --collect-only` succeeds.\n"
+        "12. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with PBT invariants + boundary tests.\n"
+        "13. Output ONLY a single ```python ... ``` code block containing the complete test file."
     )
 
     user_prompt = (
@@ -91,51 +202,70 @@ def run_repro_agent(
         user_prompt=user_prompt,
         temperature=0.15,
     )
-    code = _extract_python_code(raw)
+    code = _harden_hypothesis_settings(_extract_python_code(raw))
     test_path.write_text(code, encoding="utf-8")
 
-    # Deterministic collection gate: syntax + pytest --collect-only (catches invalid Hypothesis kwargs like max_depth)
-    for repair_try in range(2):
+    # Deterministic pre-flight gate: static Hypothesis lint + py_compile + pytest --collect-only
+    # + runtime check for Hypothesis harness errors (up to 2 self-repair passes)
+    repro_run = None
+    for repair_try in range(3):
+        lint_errors = _lint_generated_pbt(code)
         comp = run_cmd([sys.executable, "-m", "py_compile", str(test_path)], cwd=repo_root, timeout=30)
         collect = (
             run_cmd([sys.executable, "-m", "pytest", "-o", "addopts=", "--collect-only", str(test_rel)], cwd=repo_root, timeout=30)
             if comp.returncode == 0
             else comp
         )
-        if comp.returncode == 0 and collect.returncode == 0:
+
+        harness_err = ""
+        if lint_errors:
+            harness_err = "Static PBT lint errors:\n- " + "\n- ".join(lint_errors)
+        elif comp.returncode != 0:
+            harness_err = f"Syntax error:\n{comp.stderr}"
+        elif collect.returncode != 0:
+            harness_err = f"pytest --collect-only failed (rc={collect.returncode}):\n{(collect.stdout + collect.stderr)[-2000:]}"
+        else:
+            repro_run = run_cmd([sys.executable, "-m", "pytest", "-o", "addopts=", str(test_rel), "-v", "--tb=short"], cwd=repo_root, timeout=60)
+            combined = repro_run.stdout + "\n" + repro_run.stderr
+            if any(marker in combined for marker in _HARNESS_ERROR_MARKERS):
+                harness_err = f"Hypothesis test-harness error detected during pre-fix run:\n{combined[-2000:]}"
+
+        if not harness_err:
             break
-        err_trace = (collect.stdout + "\n" + collect.stderr)[-2000:]
-        if repair_try == 1:
-            return False, test_path, f"ReproAgent test failed pytest collection after self-repair:\n{err_trace}"
-        print(f"[stage3_repro] Collection failed (rc={collect.returncode}); running 1 self-repair call...")
+
+        if repair_try == 2:
+            return False, test_path, f"ReproAgent PBT test failed pre-flight validation after self-repair:\n{harness_err}"
+
+        print(f"[stage3_repro] Pre-flight PBT check failed (pass {repair_try + 1}); running self-repair...")
         repair_prompt = (
-            f"The pytest file `{test_rel}` failed syntax/collection with this error:\n```\n{err_trace}\n```\n\n"
+            f"The generated PBT file `{test_rel}` failed our Hypothesis/pytest pre-flight check:\n"
+            f"```\n{harness_err}\n```\n\n"
             f"Current file:\n```python\n{code}\n```\n\n"
-            "Fix the collection/Hypothesis API error (keep all PBT `@given` tests and boundary tests) "
-            "and return ONLY the complete corrected ```python ... ``` code block."
+            "Fix ONLY the Hypothesis strategy/harness issue while preserving all PBT `@given` invariants and AC boundary tests. "
+            "Return ONLY the complete corrected ```python ... ``` code block."
         )
         raw = llm.call_gemini(
-            stage="stage3_repro_pbt_repair",
+            stage=f"stage3_repro_pbt_repair_{repair_try + 1}",
             models=models,
             system_prompt=system_prompt,
             user_prompt=repair_prompt,
             temperature=0.1,
         )
-        code = _extract_python_code(raw)
+        code = _harden_hypothesis_settings(_extract_python_code(raw))
         test_path.write_text(code, encoding="utf-8")
 
+    assert repro_run is not None
     has_pbt = "@given" in code and "hypothesis" in code
-    repro_run = run_cmd([sys.executable, "-m", "pytest", "-o", "addopts=", str(test_rel), "-v"], cwd=repo_root, timeout=60)
     note = (
         f"\n## Pre-Implementation TDD / Repro Check (`{test_rel}`)\n"
         f"- **Hypothesis PBT Present:** `{has_pbt}`\n"
-        f"- **Pytest Collection Gate:** `PASS`\n"
+        f"- **Pre-Flight Collection & Harness Gate:** `PASS`\n"
         f"- **Pre-Fix Exit Code:** `{repro_run.returncode}` (1 confirms bug/feature fails before patch)\n\n"
         f"```\n{(repro_run.stdout + repro_run.stderr)[-2000:]}\n```\n"
     )
     status_path = artifacts_dir / "status.md"
     status_path.write_text(status_path.read_text(encoding="utf-8") + note, encoding="utf-8")
-    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, collect=OK, pre-fix rc={repro_run.returncode})"
+    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, preflight=OK, pre-fix rc={repro_run.returncode})"
 
 
 def run_coder_attempt(
@@ -168,7 +298,6 @@ def run_coder_attempt(
     for rel in files_to_show:
         p = repo_root / rel
         if p.exists():
-            # Provide exact raw content (no line number prefixes!) so SEARCH blocks match verbatim
             raw_content = p.read_text(encoding="utf-8")
             code_sections.append(f"### FILE: {rel}\n```python\n{raw_content}\n```")
 
@@ -176,7 +305,7 @@ def run_coder_attempt(
 
     system_prompt = (
         "You are Stage 3 (CoderAgent) for TinyDB (Python >=3.10, ZERO third-party runtime dependencies in tinydb/).\n"
-        "You MUST output edits strictly as exact SEARCH/REPLACE blocks — NEVER rewrite entire files unless creating a test.\n\n"
+        "You MUST output edits strictly as exact SEARCH/REPLACE blocks — NEVER rewrite entire files.\n\n"
         "EXACT OUTPUT FORMAT (repeat for each edit):\n"
         "FILE: tinydb/queries.py\n"
         "<<<<<<< SEARCH\n"
@@ -186,11 +315,12 @@ def run_coder_attempt(
         ">>>>>>> REPLACE\n\n"
         "RULES:\n"
         "1. Only edit files under `tinydb/` or `tests/`.\n"
-        "2. Copy SEARCH lines character-for-character from the file contents provided below.\n"
-        "3. Include enough surrounding context lines (3-6 lines) so each SEARCH block is unique.\n"
+        "2. Copy SEARCH lines character-for-character from the Current File Contents provided below.\n"
+        "3. Include 3-6 surrounding context lines so each SEARCH block matches uniquely.\n"
         "4. Respect all TinyDB architectural constraints (stdlib only in tinydb/, sound Query hashvals, no upward imports).\n"
-        "5. If a newly generated test in `tests/test_issue_*_pbt.py` has a buggy Hypothesis strategy (e.g., invalid test assumption), "
-        "you may fix that test file ONLY if the test itself contradicts `spec.md`; never delete or weaken real acceptance tests."
+        "5. If the failure trace shows a Hypothesis strategy/harness bug in `tests/test_issue_*_pbt.py` "
+        "(e.g., `FailedHealthCheck`, `NaN != NaN`, `True == 1` bool/int mix, or `getattr(Query(), ...)`), "
+        "fix the buggy strategy in `tests/test_issue_*_pbt.py` while keeping all real acceptance assertions intact."
     )
 
     feedback_block = ""
