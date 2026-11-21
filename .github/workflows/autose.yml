@@ -26,8 +26,8 @@ env:
   GEMINI_STAGE2_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
   GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
   GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it"
-  GEMMA_DELIVERY_MODELS: "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.5-flash-lite"
-  GEMMA_REVIEWER_MODELS: "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.7-flash,gemini-3.6-flash"
+  GEMMA_DELIVERY_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.5-flash-lite"
+  GEMMA_REVIEWER_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.7-flash,gemini-3.6-flash"
 
 jobs:
   # ============================================================================
