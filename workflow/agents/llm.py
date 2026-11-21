@@ -95,12 +95,18 @@ class LLMGateway:
 
     def _get_gemini_client(self):
         if self._gemini_client is None:
-            from google import genai  # lazy import so Reviewer job doesn't require Gemini key
+            from google import genai  # lazy import
+            from google.genai import types
 
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
                 raise RuntimeError("GEMINI_API_KEY environment variable is not set")
-            self._gemini_client = genai.Client(api_key=api_key)
+            # Hard 60s HTTP timeout (ms) so stalled server sockets fail over cleanly to Groq/fallbacks
+            timeout_ms = int(os.environ.get("GEMINI_HTTP_TIMEOUT_MS", "60000"))
+            self._gemini_client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(timeout=timeout_ms),
+            )
         return self._gemini_client
 
     def call_gemini(
@@ -187,10 +193,10 @@ class LLMGateway:
                     self._save_usage()
                     if transient and attempt == 0:
                         wait_s = 10 if "429" in msg else 4
-                        print(f"[llm] {stage}: {model} transient error (uncounted), retrying in {wait_s}s...")
+                        print(f"[llm] {stage}: {model} transient error (uncounted), retrying in {wait_s}s...", flush=True)
                         time.sleep(wait_s)
                         continue
-                    print(f"[llm] {stage}: {model} unavailable (uncounted), trying next fallback...")
+                    print(f"[llm] {stage}: {model} unavailable (uncounted: {msg[:100]}), trying next fallback...", flush=True)
                     break
 
         # Cross-provider last-resort fallback to Groq Free Tier (ADR-006 v6 / ADR-008 v4 disjoint pools)
@@ -199,7 +205,7 @@ class LLMGateway:
                 "GROQ_BUILDER_FALLBACK_MODELS",
                 "qwen/qwen3-32b,openai/gpt-oss-20b,llama-3.1-8b-instant",
             )
-            print(f"[llm] {stage}: Primary chain unavailable; failing over to Groq {groq_models}...")
+            print(f"[llm] {stage}: Primary chain unavailable; failing over to Groq {groq_models}...", flush=True)
             return self.call_groq(
                 stage=stage,
                 models=groq_models,
