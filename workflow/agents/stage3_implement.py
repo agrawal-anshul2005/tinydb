@@ -67,10 +67,13 @@ def run_repro_agent(
         "1. Import `from hypothesis import given, settings, strategies as st`.\n"
         "2. Decorate EVERY Hypothesis test with `@settings(max_examples=50, derandomize=True, deadline=None)`.\n"
         "3. Use `TinyDB(storage=MemoryStorage)` so tests never create temporary files on disk.\n"
-        "4. Constrain strategies safely (e.g., `st.floats(allow_nan=False, allow_infinity=False)`, "
-        "valid dict keys `st.text(min_size=1, max_size=12)`, finite integers) so tests don't fail on NaN != NaN.\n"
-        "5. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with at least one PBT invariant or boundary test.\n"
-        "6. Output ONLY a single ```python ... ``` code block containing the complete test file."
+        "4. Use simple, reliable strategies (`st.integers`, `st.floats(allow_nan=False, allow_infinity=False)`, "
+        "`st.text`, `st.booleans`, `st.none`, `st.lists`, `st.dictionaries`, `st.one_of`). "
+        "NEVER pass `max_depth` to `st.recursive` (avoid `st.recursive` altogether).\n"
+        "5. If testing a brand-new function or symbol that does not yet exist in `tinydb/` (e.g., `from tinydb.operations import rename`), "
+        "import it INSIDE each test function rather than at module top-level so `pytest --collect-only` succeeds cleanly.\n"
+        "6. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with at least one PBT invariant or boundary test.\n"
+        "7. Output ONLY a single ```python ... ``` code block containing the complete test file."
     )
 
     user_prompt = (
@@ -91,22 +94,48 @@ def run_repro_agent(
     code = _extract_python_code(raw)
     test_path.write_text(code, encoding="utf-8")
 
-    # Verify syntax & Hypothesis @given presence
-    comp = run_cmd([sys.executable, "-m", "py_compile", str(test_path)], cwd=repo_root, timeout=30)
-    if comp.returncode != 0:
-        return False, test_path, f"Generated repro test has syntax error: {comp.stderr}"
+    # Deterministic collection gate: syntax + pytest --collect-only (catches invalid Hypothesis kwargs like max_depth)
+    for repair_try in range(2):
+        comp = run_cmd([sys.executable, "-m", "py_compile", str(test_path)], cwd=repo_root, timeout=30)
+        collect = (
+            run_cmd([sys.executable, "-m", "pytest", "-o", "addopts=", "--collect-only", str(test_rel)], cwd=repo_root, timeout=30)
+            if comp.returncode == 0
+            else comp
+        )
+        if comp.returncode == 0 and collect.returncode == 0:
+            break
+        err_trace = (collect.stdout + "\n" + collect.stderr)[-2000:]
+        if repair_try == 1:
+            return False, test_path, f"ReproAgent test failed pytest collection after self-repair:\n{err_trace}"
+        print(f"[stage3_repro] Collection failed (rc={collect.returncode}); running 1 self-repair call...")
+        repair_prompt = (
+            f"The pytest file `{test_rel}` failed syntax/collection with this error:\n```\n{err_trace}\n```\n\n"
+            f"Current file:\n```python\n{code}\n```\n\n"
+            "Fix the collection/Hypothesis API error (keep all PBT `@given` tests and boundary tests) "
+            "and return ONLY the complete corrected ```python ... ``` code block."
+        )
+        raw = llm.call_gemini(
+            stage="stage3_repro_pbt_repair",
+            models=models,
+            system_prompt=system_prompt,
+            user_prompt=repair_prompt,
+            temperature=0.1,
+        )
+        code = _extract_python_code(raw)
+        test_path.write_text(code, encoding="utf-8")
 
     has_pbt = "@given" in code and "hypothesis" in code
     repro_run = run_cmd([sys.executable, "-m", "pytest", "-o", "addopts=", str(test_rel), "-v"], cwd=repo_root, timeout=60)
     note = (
         f"\n## Pre-Implementation TDD / Repro Check (`{test_rel}`)\n"
         f"- **Hypothesis PBT Present:** `{has_pbt}`\n"
-        f"- **Pre-Fix Exit Code:** `{repro_run.returncode}` (non-zero confirms bug/feature fails before patch)\n\n"
+        f"- **Pytest Collection Gate:** `PASS`\n"
+        f"- **Pre-Fix Exit Code:** `{repro_run.returncode}` (1 confirms bug/feature fails before patch)\n\n"
         f"```\n{(repro_run.stdout + repro_run.stderr)[-2000:]}\n```\n"
     )
     status_path = artifacts_dir / "status.md"
     status_path.write_text(status_path.read_text(encoding="utf-8") + note, encoding="utf-8")
-    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, pre-fix rc={repro_run.returncode})"
+    return True, test_path, f"Created {test_rel} (PBT={has_pbt}, collect=OK, pre-fix rc={repro_run.returncode})"
 
 
 def run_coder_attempt(
