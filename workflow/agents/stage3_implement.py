@@ -98,6 +98,7 @@ def _harden_hypothesis_settings(code: str) -> str:
     """
     # Deterministic auto-fixes (applied even before invoking any LLM retry!)
     code = re.sub(r"getattr\(\s*Query\(\)\s*,\s*([^)]+)\)", r"Query()[\1]", code)
+    code = re.sub(r"\.get\(\s*doc_id\s*\)", ".get(doc_id=doc_id)", code)
     code = re.sub(
         r"st\.text\([^)]*\)\.filter\(\s*lambda\s+[a-zA-Z_]\w*\s*:\s*[a-zA-Z_]\w*\.isidentifier\(\)\s*\)",
         "st.text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=8)",
@@ -199,8 +200,9 @@ def run_repro_agent(
         "10. For generator tests, pass `st.lists(...)` into `@given` and construct the generator `(x for x in items)` INSIDE the test body (never in the decorator!).\n"
         "11. If testing a brand-new function/symbol that does not exist yet (e.g., `from tinydb.operations import rename`), "
         "import it INSIDE each test function rather than at module top-level so `pytest --collect-only` succeeds.\n"
-        "12. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with PBT invariants + boundary tests.\n"
-        "13. Output ONLY a single ```python ... ``` code block containing the complete test file."
+        "12. TinyDB `Table.get()` takes `doc_id` as a KEYWORD argument: ALWAYS write `db.get(doc_id=doc_id)`, NEVER `db.get(doc_id)`.\n"
+        "13. Cover EVERY Acceptance Criterion (`AC-*`) in `spec.md` with PBT invariants + boundary tests.\n"
+        "14. Output ONLY a single ```python ... ``` code block containing the complete test file."
     )
 
     user_prompt = (
