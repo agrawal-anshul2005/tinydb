@@ -1,0 +1,289 @@
+name: AutoSE Agentic SDLC Workflow
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+# Deny all permissions by default; grant least-privilege per job (ADR-008, ADR-009)
+permissions: {}
+
+# Serialize concurrent runs targeting the same issue (ADR-010)
+concurrency:
+  group: autose-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+env:
+  # Hard per-run safety budgets (ADR-009)
+  MAX_TOKENS_PER_RUN: "200000"
+  MAX_LLM_CALLS_PER_RUN: "15"
+  MAX_CODER_ATTEMPTS: "3"
+  MIN_CALL_INTERVAL_SEC: "6"
+  # Empirically verified multi-provider free-tier models (ADR-006 v3)
+  GEMINI_STAGE1_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
+  GEMINI_STAGE2_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
+  GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash,gemini-3.5-flash-lite,gemma-4-31b-it"
+  GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it"
+  GH_DELIVERY_MODELS: "openai/gpt-4o-mini,meta/llama-3.3-70b-instruct"
+  GH_REVIEWER_MODELS: "openai/gpt-4o,meta/llama-3.3-70b-instruct,openai/gpt-4o-mini"
+
+jobs:
+  # ============================================================================
+  # ROUND 1 — BUILDER PIPELINE (Stages 1-5)
+  # ============================================================================
+  round1_build:
+    name: "Round 1: Stages 1-5 (Builder & Release)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      (
+        (github.event_name == 'issues' && github.event.label.name == 'autose') ||
+        (github.event_name == 'issue_comment' && !github.event.issue.pull_request && startsWith(github.event.comment.body, '/autose'))
+      ) && (
+        github.actor == github.repository_owner ||
+        (github.event_name == 'issue_comment' && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+      )
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      models: read
+    outputs:
+      status: ${{ steps.orch.outputs.status }}
+      pr_number: ${{ steps.orch.outputs.pr_number }}
+      pr_url: ${{ steps.orch.outputs.pr_url }}
+      branch: ${{ steps.orch.outputs.branch }}
+      failed_stage: ${{ steps.orch.outputs.failed_stage }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install workflow & test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r workflow/requirements.txt
+          pip install -e .
+
+      - name: Run deterministic orchestrator (Stages 1-5)
+        id: orch
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python -m workflow.agents.orchestrator \
+            --issue "$ISSUE_NUMBER" \
+            --round 1 \
+            --start-stage 1 \
+            --artifacts-dir /tmp/autose-round1
+
+      - name: Upload Round 1 Stage Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round1-issue-${{ github.event.issue.number }}-artifacts
+          path: /tmp/autose-round1/
+          if-no-files-found: warn
+
+  # ============================================================================
+  # ROUND 1 — INDEPENDENT REVIEWER (Stage 6 — Isolated, Read-Only, Cross-Provider)
+  # ============================================================================
+  round1_review:
+    name: "Round 1: Stage 6 (Independent Review)"
+    needs: round1_build
+    if: needs.round1_build.outputs.status == 'released'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # NO contents:write (cannot push!), NO GEMINI_API_KEY, NO download of Stage 1-5 traces!
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      models: read
+    outputs:
+      verdict: ${{ steps.rev.outputs.verdict }}
+    steps:
+      - name: Fresh checkout of PR HEAD (read-only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.round1_build.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies (no Gemini SDK needed)
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov hypothesis pyyaml
+          pip install -e .
+
+      - name: Run Independent ReviewerAgent (Stage 6)
+        id: rev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ needs.round1_build.outputs.pr_number }}
+        run: |
+          python -m workflow.agents.stage6_review \
+            --issue "$ISSUE_NUMBER" \
+            --pr "$PR_NUMBER" \
+            --round 1 \
+            --artifacts-dir /tmp/autose-review1
+
+      - name: Upload Round 1 Review Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round1-issue-${{ github.event.issue.number }}-review
+          path: /tmp/autose-review1/
+          if-no-files-found: warn
+
+  # ============================================================================
+  # ROUND 2 — REVISION PIPELINE (Only if Round 1 requested FIX_DESIGN or FIX_CODE)
+  # ============================================================================
+  round2_build:
+    name: "Round 2: Revision (Stages 2/3-5)"
+    needs: [round1_build, round1_review]
+    if: >-
+      needs.round1_review.outputs.verdict == 'FIX_CODE' ||
+      needs.round1_review.outputs.verdict == 'FIX_DESIGN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      models: read
+    outputs:
+      status: ${{ steps.orch2.outputs.status }}
+      pr_number: ${{ steps.orch2.outputs.pr_number }}
+      branch: ${{ steps.orch2.outputs.branch }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Round 1 artifacts (spec.md, design.md)
+        uses: actions/download-artifact@v4
+        with:
+          name: round1-issue-${{ github.event.issue.number }}-artifacts
+          path: /tmp/autose-round2
+
+      - name: Download Round 1 reviewer feedback
+        uses: actions/download-artifact@v4
+        with:
+          name: round1-issue-${{ github.event.issue.number }}-review
+          path: /tmp/autose-feedback1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install workflow & test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r workflow/requirements.txt
+          pip install -e .
+
+      - name: Run Round 2 revision orchestrator
+        id: orch2
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ needs.round1_build.outputs.pr_number }}
+          VERDICT: ${{ needs.round1_review.outputs.verdict }}
+        run: |
+          START_STAGE=3
+          if [ "$VERDICT" = "FIX_DESIGN" ]; then
+            START_STAGE=2
+          fi
+          python -m workflow.agents.orchestrator \
+            --issue "$ISSUE_NUMBER" \
+            --round 2 \
+            --start-stage "$START_STAGE" \
+            --pr-number "$PR_NUMBER" \
+            --review-feedback /tmp/autose-feedback1/review.md \
+            --artifacts-dir /tmp/autose-round2
+
+      - name: Upload Round 2 Stage Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round2-issue-${{ github.event.issue.number }}-artifacts
+          path: /tmp/autose-round2/
+          if-no-files-found: warn
+
+  # ============================================================================
+  # ROUND 2 — FINAL INDEPENDENT REVIEWER (Max 2 review rounds, then human decides)
+  # ============================================================================
+  round2_review:
+    name: "Round 2: Stage 6 (Final Independent Review)"
+    needs: [round1_build, round2_build]
+    if: needs.round2_build.outputs.status == 'released'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      models: read
+    outputs:
+      verdict: ${{ steps.rev2.outputs.verdict }}
+    steps:
+      - name: Fresh checkout of updated PR HEAD (read-only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.round1_build.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov hypothesis pyyaml
+          pip install -e .
+
+      - name: Run Final Independent ReviewerAgent (Round 2/2)
+        id: rev2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ needs.round1_build.outputs.pr_number }}
+        run: |
+          python -m workflow.agents.stage6_review \
+            --issue "$ISSUE_NUMBER" \
+            --pr "$PR_NUMBER" \
+            --round 2 \
+            --artifacts-dir /tmp/autose-review2
+
+      - name: Upload Round 2 Review Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round2-issue-${{ github.event.issue.number }}-review
+          path: /tmp/autose-review2/
+          if-no-files-found: warn
