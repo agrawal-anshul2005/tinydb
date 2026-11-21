@@ -38,15 +38,14 @@ def _generate_pr_metadata(
         f"## test_report.md (excerpt)\n{test_report[:1500]}"
     )
 
-    models = get_model_chain("GH_DELIVERY_MODELS", "openai/gpt-4o-mini,meta/llama-3.3-70b-instruct")
+    models = get_model_chain("GEMMA_DELIVERY_MODELS", "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.5-flash-lite")
     try:
-        raw = llm.call_github_models(
+        raw = llm.call_gemini(
             stage=f"stage5_delivery_r{round_num}",
             models=models,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.1,
-            max_tokens=1200,
         )
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         data = json.loads(m.group(0) if m else raw)
