@@ -73,3 +73,17 @@ def decrement(field: str) -> Callable[[MutableMapping], None]:
         doc[field] -= 1
 
     return transform
+
+
+def rename(old_field: str, new_field: str) -> Callable[[MutableMapping], None]:
+    """
+    Rename a field in the document.
+    """
+    def transform(doc: MutableMapping):
+        if old_field not in doc:
+            raise KeyError(old_field)
+
+        val = doc.pop(old_field)
+        doc[new_field] = val
+
+    return transform
