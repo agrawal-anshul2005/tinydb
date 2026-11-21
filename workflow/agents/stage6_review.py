@@ -110,16 +110,15 @@ def run_stage6_review(
     )
 
     models = get_model_chain(
-        "GH_REVIEWER_MODELS",
-        "openai/gpt-4o,meta/llama-3.3-70b-instruct,openai/gpt-4o-mini",
+        "GEMMA_REVIEWER_MODELS",
+        "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.7-flash,gemini-3.6-flash",
     )
-    review_text = llm.call_github_models(
+    review_text = llm.call_gemini(
         stage=f"stage6_independent_review_r{round_num}",
         models=models,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         temperature=0.1,
-        max_tokens=2200,
     )
 
     verdict = _parse_verdict(review_text)
@@ -143,7 +142,7 @@ def run_stage6_review(
     full_review = (
         f"### Independent Code Review — Round {round_num}/2 (`{verdict}`)\n\n"
         f"*Reviewer context: Fresh container, read-only code permissions (`contents: read`), "
-        f"cross-provider model (`{llm.records[-1]['used_model']}`), zero access to implementer traces.*\n\n"
+        f"distinct open-weight model family (`{llm.records[-1]['used_model']}`), zero access to implementer traces.*\n\n"
         f"{review_text}{final_note}"
     )
     review_path = artifacts_dir / "review.md"
