@@ -213,8 +213,8 @@ def run_repro_agent(
     import os
 
     max_repro_attempts = int(os.environ.get("MAX_REPRO_ATTEMPTS", "3"))  # 2 primary + 1 escalated
-    primary_models = get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite,gemma-4-31b-it")
-    escalated_models = get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it")
+    primary_models = get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+    escalated_models = get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite")
 
     repro_history: list[str] = []
     code = ""
@@ -322,9 +322,9 @@ def run_coder_attempt(
     is_escalated = attempt >= 3
     tier = "escalated" if is_escalated else "primary"
     models = (
-        get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it")
+        get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite")
         if is_escalated
-        else get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite,gemma-4-31b-it")
+        else get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
     )
 
     files_to_show = list(dict.fromkeys(target_files + [test_rel]))

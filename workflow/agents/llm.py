@@ -111,6 +111,7 @@ class LLMGateway:
         user_prompt: str,
         temperature: float = 0.2,
         response_mime_type: Optional[str] = None,
+        groq_fallback_models: Optional[list[str]] = None,
     ) -> str:
         """Invoke Gemini with pacing, backoff, and ordered model fallback chain."""
         self._check_budget(stage)
@@ -192,13 +193,13 @@ class LLMGateway:
                     print(f"[llm] {stage}: {model} unavailable (uncounted), trying next fallback...")
                     break
 
-        # Cross-provider last-resort fallback to Groq Free Tier (ADR-006 v6)
+        # Cross-provider last-resort fallback to Groq Free Tier (ADR-006 v6 / ADR-008 v4 disjoint pools)
         if os.environ.get("GROQ_API_KEY"):
-            groq_models = get_model_chain(
-                "GROQ_FALLBACK_MODELS",
-                "llama-3.3-70b-versatile,openai/gpt-oss-120b,llama-3.1-8b-instant",
+            groq_models = groq_fallback_models or get_model_chain(
+                "GROQ_BUILDER_FALLBACK_MODELS",
+                "qwen/qwen3-32b,openai/gpt-oss-20b,llama-3.1-8b-instant",
             )
-            print(f"[llm] {stage}: All Gemini/Gemma models unavailable; failing over to Groq {groq_models}...")
+            print(f"[llm] {stage}: Primary chain unavailable; failing over to Groq {groq_models}...")
             return self.call_groq(
                 stage=stage,
                 models=groq_models,
