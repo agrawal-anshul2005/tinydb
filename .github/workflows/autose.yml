@@ -28,6 +28,7 @@ env:
   GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemma-4-26b-a4b-it"
   GEMMA_DELIVERY_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.5-flash-lite"
   GEMMA_REVIEWER_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.7-flash,gemini-3.6-flash"
+  GROQ_FALLBACK_MODELS: "llama-3.3-70b-versatile,openai/gpt-oss-120b,llama-3.1-8b-instant"
 
 jobs:
   # ============================================================================
@@ -77,6 +78,7 @@ jobs:
         id: orch
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -133,6 +135,7 @@ jobs:
         id: rev
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -205,6 +208,7 @@ jobs:
         id: orch2
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -268,6 +272,7 @@ jobs:
         id: rev2
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}

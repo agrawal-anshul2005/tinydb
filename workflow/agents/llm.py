@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 GITHUB_MODELS_ENDPOINT = "https://models.github.ai/inference/chat/completions"
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class BudgetExceededError(RuntimeError):
@@ -191,7 +192,135 @@ class LLMGateway:
                     print(f"[llm] {stage}: {model} unavailable (uncounted), trying next fallback...")
                     break
 
+        # Cross-provider last-resort fallback to Groq Free Tier (ADR-006 v6)
+        if os.environ.get("GROQ_API_KEY"):
+            groq_models = get_model_chain(
+                "GROQ_FALLBACK_MODELS",
+                "llama-3.3-70b-versatile,openai/gpt-oss-120b,llama-3.1-8b-instant",
+            )
+            print(f"[llm] {stage}: All Gemini/Gemma models unavailable; failing over to Groq {groq_models}...")
+            return self.call_groq(
+                stage=stage,
+                models=groq_models,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=temperature,
+                requested_model_override=requested_model,
+            )
+
         raise RuntimeError(f"All Gemini models failed for {stage}: {last_err}")
+
+    def call_groq(
+        self,
+        stage: str,
+        models: list[str],
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        requested_model_override: Optional[str] = None,
+    ) -> str:
+        """Invoke Groq OpenAI-compatible REST API using GROQ_API_KEY (free developer tier)."""
+        self._check_budget(stage)
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY is not set")
+
+        requested_model = requested_model_override or models[0]
+        last_err: Optional[Exception] = None
+
+        for idx, model in enumerate(models):
+            for attempt in range(2):
+                payload = json.dumps(
+                    {
+                        "model": model,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                    }
+                ).encode("utf-8")
+
+                req = urllib.request.Request(
+                    GROQ_ENDPOINT,
+                    data=payload,
+                    method="POST",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "autose-tinydb-workflow",
+                    },
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=90) as resp:
+                        raw_body = resp.read().decode("utf-8", errors="replace").strip()
+                        if not raw_body:
+                            raise RuntimeError(f"Empty HTTP {resp.status} response from Groq")
+                        body = json.loads(raw_body)
+                    text = body["choices"][0]["message"]["content"].strip()
+                    usage = body.get("usage", {})
+                    prompt_tok = int(usage.get("prompt_tokens", 0) or 0)
+                    out_tok = int(usage.get("completion_tokens", 0) or 0)
+                    tot_tok = int(usage.get("total_tokens", 0) or (prompt_tok + out_tok))
+
+                    self.records.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "groq",
+                            "requested_model": requested_model,
+                            "used_model": model,
+                            "fallback_used": True if (requested_model_override or idx > 0) else False,
+                            "prompt_tokens": prompt_tok,
+                            "output_tokens": out_tok,
+                            "total_tokens": tot_tok,
+                        }
+                    )
+                    self._save_usage()
+                    return text
+
+                except urllib.error.HTTPError as exc:
+                    err_body = ""
+                    try:
+                        err_body = exc.read().decode("utf-8", errors="replace")[:200]
+                    except Exception:
+                        pass
+                    last_err = RuntimeError(f"HTTP {exc.code}: {err_body}")
+                    self.transient_errors.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "groq",
+                            "model": model,
+                            "counted_against_budget": False,
+                            "error": str(last_err)[:180],
+                        }
+                    )
+                    self._save_usage()
+                    if exc.code in (429, 500, 502, 503, 504) and attempt == 0:
+                        time.sleep(8)
+                        continue
+                    print(f"[llm] {stage}: Groq {model} failed (uncounted: {last_err}), trying next fallback...")
+                    break
+                except Exception as exc:
+                    last_err = exc
+                    self.transient_errors.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": stage,
+                            "provider": "groq",
+                            "model": model,
+                            "counted_against_budget": False,
+                            "error": str(exc)[:180],
+                        }
+                    )
+                    self._save_usage()
+                    print(f"[llm] {stage}: Groq {model} error (uncounted: {exc}), trying next fallback...")
+                    break
+
+        raise RuntimeError(f"All Groq fallback models failed for {stage}: {last_err}")
 
     def call_github_models(
         self,
