@@ -26,6 +26,15 @@ def _write_gh_output(pairs: dict[str, str]) -> None:
             fh.write(f"{k}={v}\n")
 
 
+def _prioritize_source_diff(pr_diff: str, limit: int = 18000) -> str:
+    """Order diff sections so production code under tinydb/ always appears before tests/."""
+    parts = re.split(r"(?=^diff --git )", pr_diff, flags=re.M)
+    src_parts = [p for p in parts if p.startswith("diff --git a/tinydb/")]
+    other_parts = [p for p in parts if not p.startswith("diff --git a/tinydb/") and p.strip()]
+    ordered = "\n".join(src_parts + other_parts) if (src_parts or other_parts) else pr_diff
+    return ordered[:limit]
+
+
 def _parse_verdict(text: str) -> str:
     """Extract APPROVE | FIX_CODE | FIX_DESIGN from reviewer output."""
     m = re.search(r'"verdict"\s*:\s*"(APPROVE|FIX_CODE|FIX_DESIGN)"', text, re.I)
@@ -99,10 +108,11 @@ def run_stage6_review(
     )
 
     issue_blob = f"Issue #{issue['number']}: {issue['title']}\n\n{issue.get('body', '')}"
+    prioritized_diff = _prioritize_source_diff(pr_diff, limit=18000)
     user_prompt = (
         f"Review Pull Request #{pr_number} for Issue #{issue_number} (Review Round {round_num}/2).\n\n"
         f"{wrap_untrusted(f'issue-{issue_number}', issue_blob)}\n\n"
-        f"## PR Diff (`gh pr diff {pr_number}`)\n```diff\n{pr_diff[:12000]}\n```\n\n"
+        f"## PR Diff (`gh pr diff {pr_number}` — production code prioritized first)\n```diff\n{prioritized_diff}\n```\n\n"
         f"## Independent `pytest` Run at PR HEAD (exit code {pytest_proc.returncode})\n"
         f"```\n{pytest_summary}\n```\n\n"
         f"## Repository AST Map at PR HEAD\n{skel_text[:3500]}\n\n"
