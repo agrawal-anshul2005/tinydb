@@ -120,7 +120,7 @@ class LLMGateway:
         last_err: Optional[Exception] = None
 
         for idx, model in enumerate(models):
-            for attempt in range(3):
+            for attempt in range(2):
                 elapsed = time.time() - self._last_gemini_call_ts
                 if self._last_gemini_call_ts > 0 and elapsed < self.min_interval:
                     time.sleep(self.min_interval - elapsed)
@@ -183,8 +183,8 @@ class LLMGateway:
                         }
                     )
                     self._save_usage()
-                    if transient and attempt < 2:
-                        wait_s = (12 if "429" in msg else 6) * (attempt + 1)
+                    if transient and attempt == 0:
+                        wait_s = 10 if "429" in msg else 4
                         print(f"[llm] {stage}: {model} transient error (uncounted), retrying in {wait_s}s...")
                         time.sleep(wait_s)
                         continue

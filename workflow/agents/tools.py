@@ -164,13 +164,14 @@ def all_symbols_in_map(skel: dict[str, Any]) -> set[str]:
 
 
 _SR_BLOCK_RE = re.compile(
-    r"FILE:\s*([^\r\n]+)\r?\n"
-    r"<<<<<<< SEARCH\r?\n(.*?)\r?\n=======\r?\n(.*?)\r?\n>>>>>>> REPLACE",
+    r"(?:^|\n)[#*\s`]*FILE:[*\s`]*([^\r\n`]+?)[*\s`]*\r?\n"
+    r"(?:```[a-zA-Z]*\r?\n|\s*\r?\n)*"
+    r"<<<<<<< SEARCH[ \t]*\r?\n(.*?)\r?\n=======[ \t]*\r?\n(.*?)\r?\n>>>>>>> REPLACE",
     re.DOTALL,
 )
 
 _NEW_FILE_RE = re.compile(
-    r"NEW_FILE:\s*([^\r\n]+)\r?\n```(?:python)?\r?\n(.*?)\r?\n```",
+    r"(?:^|\n)[#*\s`]*NEW_FILE:[*\s`]*([^\r\n`]+?)[*\s`]*\r?\n```(?:python)?\r?\n(.*?)\r?\n```",
     re.DOTALL,
 )
 
