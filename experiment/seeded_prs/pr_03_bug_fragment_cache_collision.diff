@@ -1,0 +1,37 @@
+diff --git a/tinydb/queries.py b/tinydb/queries.py
+index e106c5d..114f90a 100644
+--- a/tinydb/queries.py
++++ b/tinydb/queries.py
+@@ -488,6 +488,9 @@ class Query(QueryInstance):
+ 
+     def fragment(self, document: Mapping) -> QueryInstance:
+         def test(value):
++            if not isinstance(value, Mapping):
++                return False
++
+             for key in document:
+                 if key not in value or value[key] != document[key]:
+                     return False
+@@ -495,7 +498,7 @@ class Query(QueryInstance):
+             return True
+ 
+         return self._generate_test(
+             lambda value: test(value),
+             ('fragment', freeze(document)),
+             allow_empty_path=True
+         )
+diff --git a/tests/test_seeded_pr_03.py b/tests/test_seeded_pr_03.py
+new file mode 100644
+index 0000000..99a01b2
+--- /dev/null
++++ b/tests/test_seeded_pr_03.py
+@@ -0,0 +1,11 @@
++from tinydb import Query
++
++
++def test_fragment_non_mapping_returns_false():
++    q = Query().a.fragment({'x': 1})
++    assert not q({'a': None})
++    assert not q({'a': 42})
++    assert not q({'a': 'str'})
++    assert q({'a': {'x': 1, 'y': 2}})
