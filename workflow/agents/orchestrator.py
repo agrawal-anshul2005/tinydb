@@ -160,8 +160,9 @@ def run_pipeline(
                     {"attempt": attempt, "tier": tier, "build_ok": False, "tests_ok": False, "note": build_msg[:120]}
                 )
                 error_feedback = build_msg
-                # Restore dirty tinydb files before next clean SEARCH/REPLACE attempt if compile failed
-                run_cmd(["git", "checkout", "--", "tinydb"], cwd=repo_root, timeout=15)
+                # Only revert tinydb/ when compile/import failed; atomic SEARCH/REPLACE mismatch leaves prior valid edits intact
+                if "compileall failed" in build_msg or "Import check failed" in build_msg:
+                    run_cmd(["git", "checkout", "--", "tinydb"], cwd=repo_root, timeout=15)
                 continue
 
             attempt_entry = {
