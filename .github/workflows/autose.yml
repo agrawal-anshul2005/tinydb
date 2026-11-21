@@ -21,14 +21,17 @@ env:
   MAX_REPRO_ATTEMPTS: "3"
   MAX_CODER_ATTEMPTS: "3"
   MIN_CALL_INTERVAL_SEC: "6"
-  # Empirically verified cross-family free-tier models (ADR-006 v5: Gemini 3.x + open-weight Gemma 4)
-  GEMINI_STAGE1_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
-  GEMINI_STAGE2_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
-  GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-26b-a4b-it"
-  GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemma-4-26b-a4b-it"
-  GEMMA_DELIVERY_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.5-flash-lite"
-  GEMMA_REVIEWER_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.7-flash,gemini-3.6-flash"
-  GROQ_FALLBACK_MODELS: "llama-3.3-70b-versatile,openai/gpt-oss-120b,llama-3.1-8b-instant"
+  # Strictly disjoint Builder vs Reviewer model sets (ADR-006 v6, ADR-008 v4: BuilderSet ∩ ReviewerSet = ∅)
+  # --- Builder Pool (Stages 1-5): Gemini 3.x + Groq Qwen3/GPT-OSS-20B/Llama-3.1-8B ---
+  GEMINI_STAGE1_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash"
+  GEMINI_STAGE2_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash"
+  GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash"
+  GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite"
+  GEMINI_DELIVERY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash"
+  GROQ_BUILDER_FALLBACK_MODELS: "qwen/qwen3-32b,openai/gpt-oss-20b,llama-3.1-8b-instant"
+  # --- Independent Reviewer Pool (Stage 6 ONLY): Open-weight Gemma 4 + Groq Llama-3.3-70B/GPT-OSS-120B ---
+  REVIEWER_PRIMARY_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it"
+  GROQ_REVIEWER_FALLBACK_MODELS: "llama-3.3-70b-versatile,openai/gpt-oss-120b"
 
 jobs:
   # ============================================================================

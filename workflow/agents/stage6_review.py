@@ -119,16 +119,34 @@ def run_stage6_review(
         f"## TinyDB Architecture Constraints\n{arch_excerpt}"
     )
 
+    # Strictly disjoint Reviewer model pool (ADR-008 v4): ZERO overlap with Stages 1-5 even across fallbacks
     models = get_model_chain(
-        "GEMMA_REVIEWER_MODELS",
-        "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.7-flash,gemini-3.6-flash",
+        "REVIEWER_PRIMARY_MODELS",
+        "gemma-4-26b-a4b-it,gemma-4-31b-it",
     )
+    groq_reviewer_models = get_model_chain(
+        "GROQ_REVIEWER_FALLBACK_MODELS",
+        "llama-3.3-70b-versatile,openai/gpt-oss-120b",
+    )
+    builder_pool = set(
+        get_model_chain("GEMINI_STAGE1_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+        + get_model_chain("GEMINI_STAGE2_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+        + get_model_chain("GEMINI_CODER_PRIMARY_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+        + get_model_chain("GEMINI_CODER_ESCALATION_MODELS", "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite")
+        + get_model_chain("GEMINI_DELIVERY_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+        + get_model_chain("GROQ_BUILDER_FALLBACK_MODELS", "qwen/qwen3-32b,openai/gpt-oss-20b,llama-3.1-8b-instant")
+    )
+    overlap = (set(models) | set(groq_reviewer_models)) & builder_pool
+    if overlap:
+        raise RuntimeError(f"Reviewer independence violation (ADR-008 v4): model overlap with Stages 1-5: {overlap}")
+
     review_text = llm.call_gemini(
         stage=f"stage6_independent_review_r{round_num}",
         models=models,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         temperature=0.1,
+        groq_fallback_models=groq_reviewer_models,
     )
 
     verdict = _parse_verdict(review_text)

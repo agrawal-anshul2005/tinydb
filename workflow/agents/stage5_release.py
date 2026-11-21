@@ -38,7 +38,11 @@ def _generate_pr_metadata(
         f"## test_report.md (excerpt)\n{test_report[:1500]}"
     )
 
-    models = get_model_chain("GEMMA_DELIVERY_MODELS", "gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3.5-flash-lite")
+    models = get_model_chain("GEMINI_DELIVERY_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
+    groq_builder_models = get_model_chain(
+        "GROQ_BUILDER_FALLBACK_MODELS",
+        "qwen/qwen3-32b,openai/gpt-oss-20b,llama-3.1-8b-instant",
+    )
     try:
         raw = llm.call_gemini(
             stage=f"stage5_delivery_r{round_num}",
@@ -46,6 +50,7 @@ def _generate_pr_metadata(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.1,
+            groq_fallback_models=groq_builder_models,
         )
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         data = json.loads(m.group(0) if m else raw)

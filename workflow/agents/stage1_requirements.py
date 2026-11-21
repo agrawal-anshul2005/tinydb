@@ -92,7 +92,7 @@ def run_stage1(
         f"{wrap_untrusted(f'issue-{issue_number}', issue_payload)}"
     )
 
-    models = get_model_chain("GEMINI_STAGE1_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it")
+    models = get_model_chain("GEMINI_STAGE1_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
     spec_text = llm.call_gemini(
         stage="stage1_requirements",
         models=models,

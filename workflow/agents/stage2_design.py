@@ -142,7 +142,7 @@ def run_stage2(
         f"{feedback_section}"
     )
 
-    models = get_model_chain("GEMINI_STAGE2_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it")
+    models = get_model_chain("GEMINI_STAGE2_MODELS", "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.6-flash")
     design_text = llm.call_gemini(
         stage="stage2_design",
         models=models,
