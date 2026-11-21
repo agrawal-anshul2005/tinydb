@@ -335,7 +335,10 @@ def run_coder_attempt(
             raw_content = p.read_text(encoding="utf-8")
             code_sections.append(f"### FILE: {rel}\n```python\n{raw_content}\n```")
 
-    arch_text = (repo_root / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    arch_full = (repo_root / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    # Extract only Section 3 (Architectural Constraints) to keep prompt well under 16k free-tier TPM
+    m_con = re.search(r"## 3\. Architectural Constraints.*", arch_full, re.S)
+    arch_constraints = (m_con.group(0) if m_con else arch_full)[:2200]
 
     system_prompt = (
         "You are Stage 3 (CoderAgent) for TinyDB (Python >=3.10, ZERO third-party runtime dependencies in tinydb/).\n"
@@ -352,22 +355,23 @@ def run_coder_attempt(
         "2. Copy SEARCH lines character-for-character from the Current File Contents provided below.\n"
         "3. Include 3-6 surrounding context lines so each SEARCH block matches uniquely.\n"
         "4. Respect all TinyDB architectural constraints (stdlib only in tinydb/, sound Query hashvals, no upward imports).\n"
-        "5. If the failure trace shows a Hypothesis strategy/harness bug in `tests/test_issue_*_pbt.py` "
+        "5. If adding a type annotation like `Iterable`, make sure it is imported from `collections.abc` at the top of the file.\n"
+        "6. If the failure trace shows a Hypothesis strategy/harness bug in `tests/test_issue_*_pbt.py` "
         "(e.g., `FailedHealthCheck`, `NaN != NaN`, `True == 1` bool/int mix, or `getattr(Query(), ...)`), "
         "fix the buggy strategy in `tests/test_issue_*_pbt.py` while keeping all real acceptance assertions intact."
     )
 
     feedback_block = ""
     if review_feedback:
-        feedback_block += f"\n\n## Independent Reviewer Feedback (Round 2)\n{review_feedback}\n"
+        feedback_block += f"\n\n## Independent Reviewer Feedback (Round 2)\n{review_feedback[:2500]}\n"
     if error_feedback:
-        feedback_block += f"\n\n## Previous Attempt Failure Trace (Attempt {attempt - 1})\n```\n{error_feedback[-3500:]}\n```\n"
+        feedback_block += f"\n\n## Previous Attempt Failure Trace (Attempt {attempt - 1})\n```\n{error_feedback[-2500:]}\n```\n"
 
     user_prompt = (
         f"Implement the fix/feature for this issue (Attempt {attempt}, tier={tier}).\n\n"
-        f"## spec.md\n{spec_text}\n\n"
-        f"## design.md\n{design_text}\n\n"
-        f"## ARCHITECTURE.md Constraints\n{arch_text}\n\n"
+        f"## spec.md\n{spec_text[:3500]}\n\n"
+        f"## design.md\n{design_text[:3500]}\n\n"
+        f"## TinyDB Architectural Constraints\n{arch_constraints}\n\n"
         f"## Current File Contents (copy SEARCH blocks verbatim)\n"
         + "\n\n".join(code_sections)
         + feedback_block

@@ -212,20 +212,39 @@ def apply_search_replace_blocks(repo_root: Path, llm_output: str) -> tuple[list[
         norm_replace = replace_txt.replace("\r\n", "\n")
 
         count = current.count(norm_search)
-        if count == 0:
-            errors.append(
-                f"SEARCH block not found verbatim in {rel_path}:\n{norm_search[:200]}"
-            )
+        if count == 1:
+            staged_contents[full] = current.replace(norm_search, norm_replace, 1)
+            if rel_path not in modified:
+                modified.append(rel_path)
             continue
+
         if count > 1:
             errors.append(
                 f"SEARCH block matched {count} times in {rel_path}; add more surrounding lines."
             )
             continue
 
-        staged_contents[full] = current.replace(norm_search, norm_replace, 1)
-        if rel_path not in modified:
-            modified.append(rel_path)
+        # Fallback: trailing-whitespace-tolerant line-by-line unique match
+        cur_lines = current.split("\n")
+        srch_lines = norm_search.split("\n")
+        hits: list[int] = []
+        n_srch = len(srch_lines)
+        srch_rstripped = [ln.rstrip() for ln in srch_lines]
+        for idx in range(0, len(cur_lines) - n_srch + 1):
+            if [cur_lines[idx + k].rstrip() for k in range(n_srch)] == srch_rstripped:
+                hits.append(idx)
+
+        if len(hits) == 1:
+            pos = hits[0]
+            new_lines = cur_lines[:pos] + norm_replace.split("\n") + cur_lines[pos + n_srch :]
+            staged_contents[full] = "\n".join(new_lines)
+            if rel_path not in modified:
+                modified.append(rel_path)
+            continue
+
+        errors.append(
+            f"SEARCH block not found verbatim in {rel_path}:\n{norm_search[:200]}"
+        )
 
     for m in nf_matches:
         rel_path = m.group(1).strip().strip("`")

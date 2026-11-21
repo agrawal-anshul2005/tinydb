@@ -24,8 +24,8 @@ env:
   # Empirically verified cross-family free-tier models (ADR-006 v5: Gemini 3.x + open-weight Gemma 4)
   GEMINI_STAGE1_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
   GEMINI_STAGE2_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
-  GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-31b-it"
-  GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemma-4-31b-it"
+  GEMINI_CODER_PRIMARY_MODELS: "gemini-3.5-flash-lite,gemini-3.5-flash,gemma-4-26b-a4b-it"
+  GEMINI_CODER_ESCALATION_MODELS: "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemma-4-26b-a4b-it"
   GEMMA_DELIVERY_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.5-flash-lite"
   GEMMA_REVIEWER_MODELS: "gemma-4-26b-a4b-it,gemma-4-31b-it,gemini-3.7-flash,gemini-3.6-flash"
 
