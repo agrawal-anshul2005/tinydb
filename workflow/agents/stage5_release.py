@@ -77,7 +77,10 @@ def _trigger_and_wait_ci(repo_root: Path, branch: str, pr_number: int) -> tuple[
     """
     # Dispatch ci.yml on the PR branch (allowed for GITHUB_TOKEN with actions: write)
     before_proc = run_cmd(
-        ["gh", "run", "list", "--workflow", "ci.yml", "--branch", branch, "--limit", "1", "--json", "databaseId"],
+        [
+            "gh", "run", "list", "--workflow", "ci.yml", "--branch", branch,
+            "--event", "workflow_dispatch", "--limit", "1", "--json", "databaseId",
+        ],
         cwd=repo_root,
         timeout=30,
     )
@@ -98,7 +101,7 @@ def _trigger_and_wait_ci(repo_root: Path, branch: str, pr_number: int) -> tuple[
     if disp.returncode != 0:
         return False, f"Failed to dispatch ci.yml on {branch}: {disp.stderr}"
 
-    # Poll for the new ci.yml run to appear (up to 45s)
+    # Poll for the new workflow_dispatch ci.yml run to appear (up to 45s)
     run_id = None
     run_url = ""
     for _ in range(9):
@@ -106,7 +109,8 @@ def _trigger_and_wait_ci(repo_root: Path, branch: str, pr_number: int) -> tuple[
         lst = run_cmd(
             [
                 "gh", "run", "list", "--workflow", "ci.yml", "--branch", branch,
-                "--limit", "3", "--json", "databaseId,status,conclusion,url",
+                "--event", "workflow_dispatch", "--limit", "3",
+                "--json", "databaseId,status,conclusion,url",
             ],
             cwd=repo_root,
             timeout=30,
