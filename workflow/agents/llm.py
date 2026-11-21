@@ -184,11 +184,15 @@ class LLMGateway:
         temperature: float = 0.2,
         max_tokens: int = 2500,
     ) -> str:
-        """Invoke GitHub Models REST API using GITHUB_TOKEN (requires models: read)."""
+        """Invoke GitHub Models REST API using GH_MODELS_TOKEN (preferred on forks) or GITHUB_TOKEN."""
         self._check_budget(stage)
-        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        token = (
+            os.environ.get("GH_MODELS_TOKEN")
+            or os.environ.get("GITHUB_TOKEN")
+            or os.environ.get("GH_TOKEN")
+        )
         if not token:
-            raise RuntimeError("GITHUB_TOKEN is not set for GitHub Models call")
+            raise RuntimeError("Neither GH_MODELS_TOKEN nor GITHUB_TOKEN is set for GitHub Models call")
 
         requested_model = models[0]
         last_err: Optional[Exception] = None
@@ -215,11 +219,16 @@ class LLMGateway:
                         "Authorization": f"Bearer {token}",
                         "Content-Type": "application/json",
                         "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                        "User-Agent": "autose-tinydb-workflow",
                     },
                 )
                 try:
                     with urllib.request.urlopen(req, timeout=90) as resp:
-                        body = json.loads(resp.read().decode("utf-8"))
+                        raw_body = resp.read().decode("utf-8", errors="replace").strip()
+                        if not raw_body:
+                            raise RuntimeError(f"Empty HTTP {resp.status} response from GitHub Models")
+                        body = json.loads(raw_body)
                     text = body["choices"][0]["message"]["content"].strip()
                     usage = body.get("usage", {})
                     prompt_tok = int(usage.get("prompt_tokens", 0) or 0)
